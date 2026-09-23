@@ -1,0 +1,590 @@
+@import "tailwindcss" source(none);
+@source "../src";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+/*
+ * Design system definition.
+ *
+ * The @theme inline block maps CSS custom properties to Tailwind utility
+ * classes (e.g. --color-primary -> bg-primary, text-primary).
+ *
+ * The :root and .dark blocks define the actual color values using oklch.
+ * All colors MUST use oklch format.
+ *
+ * To add a new semantic color:
+ * 1. Add the variable to :root (light value) and .dark (dark value)
+ * 2. Register it in @theme inline as --color-<name>: var(--<name>)
+ */
+
+@theme inline {
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --radius-2xl: calc(var(--radius) + 8px);
+  --radius-3xl: calc(var(--radius) + 12px);
+  --radius-4xl: calc(var(--radius) + 16px);
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-ring-offset-background: var(--background);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-brand: var(--brand);
+  --color-brand-foreground: var(--brand-foreground);
+  --color-gold: var(--gold);
+  --color-gold-foreground: var(--gold-foreground);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-surface: var(--surface);
+  --color-violet: var(--violet);
+  --color-violet-foreground: var(--violet-foreground);
+  --color-teal: var(--teal);
+  --color-teal-foreground: var(--teal-foreground);
+  --font-sans: "Schibsted Grotesk", "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Schibsted Grotesk", "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif;
+}
+
+:root {
+  --radius: 1.25rem;
+
+  /* Kipit brand */
+  --brand: oklch(0.31 0.085 254);
+  --brand-foreground: oklch(0.99 0.004 250);
+  --gold: oklch(0.78 0.145 82);
+  --gold-foreground: oklch(0.24 0.07 254);
+
+  --background: oklch(0.977 0.004 250);
+  --surface: oklch(1 0 0);
+  --foreground: oklch(0.2 0.045 254);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.2 0.045 254);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.2 0.045 254);
+  --primary: oklch(0.31 0.085 254);
+  --primary-foreground: oklch(0.99 0.004 250);
+  --secondary: oklch(0.962 0.008 250);
+  --secondary-foreground: oklch(0.31 0.085 254);
+  --muted: oklch(0.962 0.008 250);
+  --muted-foreground: oklch(0.56 0.022 254);
+  --accent: oklch(0.955 0.033 92);
+  --accent-foreground: oklch(0.29 0.075 254);
+  --destructive: oklch(0.58 0.21 25);
+  --destructive-foreground: oklch(0.98 0.005 250);
+  --success: oklch(0.6 0.13 158);
+  --warning: oklch(0.78 0.15 70);
+  --violet: oklch(0.45 0.17 295);
+  --violet-foreground: oklch(0.98 0.01 295);
+  --teal: oklch(0.6 0.11 200);
+  --teal-foreground: oklch(0.98 0.01 200);
+  --border: oklch(0.935 0.007 250);
+  --input: oklch(0.935 0.007 250);
+  --ring: oklch(0.31 0.085 254);
+  --chart-1: oklch(0.31 0.085 254);
+  --chart-2: oklch(0.78 0.145 82);
+  --chart-3: oklch(0.6 0.13 158);
+  --chart-4: oklch(0.55 0.1 254);
+  --chart-5: oklch(0.7 0.09 40);
+  --sidebar: oklch(1 0 0);
+  --sidebar-foreground: oklch(0.2 0.045 254);
+  --sidebar-primary: oklch(0.31 0.085 254);
+  --sidebar-primary-foreground: oklch(0.99 0.004 250);
+  --sidebar-accent: oklch(0.962 0.008 250);
+  --sidebar-accent-foreground: oklch(0.31 0.085 254);
+  --sidebar-border: oklch(0.935 0.007 250);
+  --sidebar-ring: oklch(0.78 0.145 82);
+
+  --gradient-brand: linear-gradient(150deg, oklch(0.24 0.075 258) 0%, oklch(0.33 0.09 254) 55%, oklch(0.4 0.095 250) 100%);
+  --gradient-gold: linear-gradient(135deg, oklch(0.85 0.145 92), oklch(0.75 0.15 72));
+  --shadow-card: 0 1px 1px oklch(0.2 0.045 254 / 0.04), 0 6px 18px -12px oklch(0.2 0.045 254 / 0.14);
+  --shadow-float: 0 20px 50px -24px oklch(0.2 0.045 254 / 0.3);
+}
+
+/* ── Kipit dark mode ────────────────────────────────────────────────
+   Deep navy-black canvas, elevated navy surfaces, gold accents. */
+.dark {
+  --background: oklch(0.17 0.032 258);
+  --surface: oklch(0.215 0.036 256);
+  --foreground: oklch(0.965 0.008 250);
+  --card: oklch(0.215 0.036 256);
+  --card-foreground: oklch(0.965 0.008 250);
+  --popover: oklch(0.225 0.038 256);
+  --popover-foreground: oklch(0.965 0.008 250);
+  --primary: oklch(0.42 0.1 252);
+  --primary-foreground: oklch(0.98 0.006 250);
+  --secondary: oklch(0.26 0.038 256);
+  --secondary-foreground: oklch(0.95 0.01 250);
+  --muted: oklch(0.26 0.038 256);
+  --muted-foreground: oklch(0.72 0.02 252);
+  --accent: oklch(0.3 0.05 250);
+  --accent-foreground: oklch(0.93 0.03 92);
+  --destructive: oklch(0.62 0.19 25);
+  --destructive-foreground: oklch(0.98 0.005 250);
+  --success: oklch(0.72 0.14 158);
+  --warning: oklch(0.82 0.15 78);
+  --violet: oklch(0.68 0.15 295);
+  --violet-foreground: oklch(0.16 0.03 258);
+  --teal: oklch(0.72 0.1 200);
+  --teal-foreground: oklch(0.16 0.03 258);
+  --border: oklch(0.3 0.032 256);
+  --input: oklch(0.3 0.032 256);
+  --ring: oklch(0.78 0.145 82);
+  --brand: oklch(0.6 0.115 252);
+  --brand-foreground: oklch(0.99 0.005 250);
+  --gold: oklch(0.82 0.15 84);
+  --gold-foreground: oklch(0.18 0.04 258);
+  --chart-1: oklch(0.66 0.11 252);
+  --chart-2: oklch(0.82 0.15 84);
+  --chart-3: oklch(0.72 0.14 158);
+  --chart-4: oklch(0.62 0.11 254);
+  --chart-5: oklch(0.75 0.1 40);
+  --sidebar: oklch(0.2 0.034 257);
+  --sidebar-foreground: oklch(0.96 0.008 250);
+  --sidebar-primary: oklch(0.42 0.1 252);
+  --sidebar-primary-foreground: oklch(0.98 0.006 250);
+  --sidebar-accent: oklch(0.26 0.038 256);
+  --sidebar-accent-foreground: oklch(0.95 0.01 250);
+  --sidebar-border: oklch(0.3 0.032 256);
+  --sidebar-ring: oklch(0.82 0.15 84);
+
+  --gradient-brand: linear-gradient(150deg, oklch(0.2 0.05 260) 0%, oklch(0.27 0.07 256) 55%, oklch(0.33 0.075 252) 100%);
+  --gradient-gold: linear-gradient(135deg, oklch(0.86 0.15 92), oklch(0.76 0.155 74));
+  --shadow-card: 0 1px 1px oklch(0 0 0 / 0.4), 0 8px 24px -14px oklch(0 0 0 / 0.6);
+  --shadow-float: 0 24px 60px -28px oklch(0 0 0 / 0.75);
+}
+
+.dark .k-glass {
+  background: oklch(1 0 0 / 0.06);
+  border: 1px solid oklch(1 0 0 / 0.12);
+  box-shadow: 0 18px 40px -28px oklch(0 0 0 / 0.8);
+}
+/* Dark mode: brand-tinted surfaces stay deep navy while brand text lightens */
+.dark .bg-brand { background-color: oklch(0.255 0.055 257); }
+.dark .border-brand { border-color: oklch(0.36 0.07 256); }
+
+/* Dark mode: gold surfaces keep dark navy text even though --brand lightens */
+.dark .bg-gold.text-brand,
+.dark .bg-gold-gradient.text-brand,
+.dark .bg-gold .text-brand,
+.dark .bg-gold-gradient .text-brand {
+  color: oklch(0.2 0.05 258);
+}
+
+.dark .k-glass8 {
+  background: oklch(1 0 0 / 0.06);
+  border: 1px solid oklch(1 0 0 / 0.12);
+}
+
+/* Alternate light theme (Kipit navy + gold branding) — used by the /home-v2 page */
+.theme-v2 {
+  color: var(--foreground);
+  --background: oklch(0.975 0.008 250);
+  --surface: oklch(1 0 0);
+  --foreground: oklch(0.24 0.06 254);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.24 0.06 254);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.24 0.06 254);
+  --primary: oklch(0.32 0.09 254);
+  --primary-foreground: oklch(0.98 0.005 250);
+  --secondary: oklch(0.945 0.015 250);
+  --secondary-foreground: oklch(0.32 0.09 254);
+  --muted: oklch(0.945 0.015 250);
+  --muted-foreground: oklch(0.52 0.035 254);
+  --accent: oklch(0.94 0.045 92);
+  --accent-foreground: oklch(0.3 0.08 254);
+  --destructive: oklch(0.58 0.21 25);
+  --destructive-foreground: oklch(0.98 0.005 250);
+  --success: oklch(0.6 0.14 155);
+  --warning: oklch(0.78 0.15 70);
+  --border: oklch(0.915 0.014 250);
+  --input: oklch(0.915 0.014 250);
+  --ring: oklch(0.32 0.09 254);
+  --brand: oklch(0.32 0.09 254);
+  --brand-foreground: oklch(0.98 0.005 250);
+  /* slightly deeper gold so gold text stays readable on white surfaces */
+  --gold: oklch(0.72 0.145 78);
+  --gold-foreground: oklch(0.25 0.07 254);
+
+  --gradient-brand: linear-gradient(135deg, oklch(0.27 0.085 254), oklch(0.42 0.1 254));
+  --gradient-gold: linear-gradient(135deg, oklch(0.87 0.15 94), oklch(0.77 0.155 74));
+  --shadow-card: 0 1px 2px oklch(0.32 0.09 254 / 0.05), 0 10px 28px -14px oklch(0.32 0.09 254 / 0.16);
+  --shadow-float: 0 16px 44px -16px oklch(0.32 0.09 254 / 0.3);
+
+  --font-display: "Syne", "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif;
+}
+
+/* @theme inline bakes font utilities at build time, so override the scope directly */
+.theme-v2 .font-display {
+  font-family: "Syne", "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif;
+}
+
+/* Per-home type systems: each concept gets its own typeface */
+.type-v3,
+.type-v3 .font-display {
+  font-family: "Sora", ui-sans-serif, system-ui, sans-serif;
+}
+.type-v4,
+.type-v4 .font-display {
+  font-family: "Manrope", ui-sans-serif, system-ui, sans-serif;
+  letter-spacing: -0.01em;
+}
+.type-v5,
+.type-v5 .font-display {
+  font-family: "Nunito", ui-sans-serif, system-ui, sans-serif;
+}
+.type-v6,
+.type-v6 .font-display {
+  font-family: "Space Grotesk", ui-sans-serif, system-ui, sans-serif;
+}
+.type-v7,
+.type-v7 .font-display {
+  font-family: "Outfit", ui-sans-serif, system-ui, sans-serif;
+}
+.type-v8,
+.type-v8 .font-display {
+  font-family: "Urbanist", ui-sans-serif, system-ui, sans-serif;
+}
+.type-v9,
+.type-v9 .font-display {
+  font-family: "Bricolage Grotesque", ui-sans-serif, system-ui, sans-serif;
+  letter-spacing: -0.015em;
+}
+/* v10 — editorial serif display over a clean geometric UI face */
+.type-v10 {
+  font-family: "Geist", ui-sans-serif, system-ui, sans-serif;
+}
+.type-v10 .font-display {
+  font-family: "Instrument Serif", ui-serif, Georgia, serif;
+  font-weight: 400;
+  letter-spacing: -0.01em;
+}
+
+/* v11 — high-contrast editorial display over a tight grotesque UI face */
+.type-v11 {
+  font-family: "Inter Tight", ui-sans-serif, system-ui, sans-serif;
+  letter-spacing: -0.011em;
+}
+.type-v11 .font-display {
+  font-family: "Fraunces", ui-serif, Georgia, serif;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+/* v12 — friendly geometric UI with a heavy display face */
+.type-v12 {
+  font-family: "Onest", ui-sans-serif, system-ui, sans-serif;
+}
+.type-v12 .font-display {
+  font-family: "Figtree", ui-sans-serif, system-ui, sans-serif;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+}
+
+@layer base {
+  * {
+    border-color: var(--color-border);
+  }
+
+  body {
+    background-color: var(--color-background);
+    color: var(--color-foreground);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+  }
+}
+
+@utility bg-brand-gradient {
+  background-image: var(--gradient-brand);
+}
+
+@utility bg-gold-gradient {
+  background-image: var(--gradient-gold);
+}
+
+@utility shadow-card {
+  box-shadow: var(--shadow-card);
+}
+
+@utility shadow-float {
+  box-shadow: var(--shadow-float);
+}
+
+@utility no-scrollbar {
+  scrollbar-width: none;
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+/* Hide scrollbars app-wide while keeping scrolling behaviour */
+html {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+* {
+  scrollbar-width: none;
+}
+*::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+  display: none;
+}
+
+
+
+
+/* v13 — the definitive Kipit home: one tight grotesque, heavy display weights */
+.type-v13 {
+  font-family: "Schibsted Grotesk", ui-sans-serif, system-ui, sans-serif;
+  letter-spacing: -0.011em;
+}
+.type-v13 .font-display {
+  font-family: "Schibsted Grotesk", ui-sans-serif, system-ui, sans-serif;
+  font-weight: 800;
+  letter-spacing: -0.035em;
+}
+
+
+/* Modern chrome primitives */
+@layer base {
+  html {
+    font-feature-settings: "ss01" 1, "cv01" 1, "tnum" 0;
+  }
+  h1, h2, h3 {
+    letter-spacing: -0.028em;
+  }
+}
+
+@utility text-num {
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+}
+
+@utility hairline {
+  border: 1px solid var(--color-border);
+}
+
+@utility card-surface {
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 1.5rem;
+  box-shadow: var(--shadow-card);
+}
+
+@utility press {
+  transition: transform 180ms cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 180ms ease, background-color 180ms ease, border-color 180ms ease;
+  &:active {
+    transform: scale(0.98);
+  }
+}
+
+/* Home 4 — "Aurora" type system: geometric UI face, heavy display face */
+.type-h4 {
+  font-family: "Onest", ui-sans-serif, system-ui, sans-serif;
+  letter-spacing: -0.012em;
+}
+.type-h4 .font-display {
+  font-family: "Bricolage Grotesque", ui-sans-serif, system-ui, sans-serif;
+  font-weight: 700;
+  letter-spacing: -0.035em;
+}
+
+
+/* Home 6 — "Midnight" type system + ambient motion */
+.type-h6 {
+  font-family: "Figtree", ui-sans-serif, system-ui, sans-serif;
+  letter-spacing: -0.012em;
+}
+.type-h6 .font-display {
+  font-family: "Fraunces", ui-serif, Georgia, serif;
+  font-weight: 600;
+  font-variation-settings: "opsz" 96;
+  letter-spacing: -0.022em;
+}
+
+@keyframes k-breathe {
+  0%, 100% { opacity: 0.55; transform: scale(1); }
+  50% { opacity: 1; transform: scale(1.08); }
+}
+.k-breathe { animation: k-breathe 6s ease-in-out infinite; }
+
+@keyframes k-draw {
+  from { stroke-dashoffset: 320; opacity: 0; }
+  to { stroke-dashoffset: 0; opacity: 1; }
+}
+.k-draw { animation: k-draw 1.1s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+
+@media (prefers-reduced-motion: reduce) {
+  .k-breathe, .k-draw { animation: none; }
+}
+
+/* Home 7 — "Glass" type system + frosted surfaces */
+.type-h7 {
+  font-family: "Geist", ui-sans-serif, system-ui, sans-serif;
+  letter-spacing: -0.014em;
+}
+.type-h7 .font-display {
+  font-family: "Space Grotesk", ui-sans-serif, system-ui, sans-serif;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+}
+
+.k-glass {
+  background: color-mix(in oklch, var(--surface, var(--card)) 55%, transparent);
+  backdrop-filter: blur(22px) saturate(160%);
+  border: 1px solid color-mix(in oklch, white 55%, transparent);
+  box-shadow: 0 18px 40px -28px oklch(0.24 0.07 254 / 0.45);
+}
+.k-glass-dark {
+  background: oklch(1 0 0 / 0.12);
+  backdrop-filter: blur(20px) saturate(150%);
+  border: 1px solid oklch(1 0 0 / 0.22);
+}
+
+/* Home 8 — "Glass timeline" type system + frosted surfaces */
+.type-h8 {
+  font-family: "Schibsted Grotesk", ui-sans-serif, system-ui, sans-serif;
+  letter-spacing: -0.012em;
+}
+.type-h8 .font-display {
+  font-family: "Syne", ui-sans-serif, system-ui, sans-serif;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+}
+
+.k-glass8 {
+  background: color-mix(in oklch, var(--color-surface) 62%, transparent);
+  backdrop-filter: blur(26px) saturate(170%);
+  border: 1px solid color-mix(in oklch, white 60%, transparent);
+  box-shadow: 0 24px 50px -34px oklch(0.24 0.07 254 / 0.5);
+}
+
+/* Success — payment-complete pop + check draw */
+@keyframes k-success-pop {
+  0% { transform: scale(0.3); opacity: 0; }
+  55% { transform: scale(1.12); opacity: 1; }
+  75% { transform: scale(0.96); }
+  100% { transform: scale(1); opacity: 1; }
+}
+.k-success-pop { animation: k-success-pop 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) 0.15s both; }
+
+@keyframes k-success-ring {
+  0% { transform: scale(0.6); opacity: 0.7; }
+  100% { transform: scale(1.9); opacity: 0; }
+}
+.k-success-ring { animation: k-success-ring 1s ease-out 0.35s both; }
+
+@keyframes k-success-check {
+  from { stroke-dashoffset: 26; }
+  to { stroke-dashoffset: 0; }
+}
+.k-success-check {
+  stroke-dasharray: 26;
+  animation: k-success-check 0.4s ease-out 0.55s both;
+}
+
+@keyframes k-success-fade {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.k-success-fade { animation: k-success-fade 0.5s ease-out 0.7s both; }
+
+@media (prefers-reduced-motion: reduce) {
+  .k-success-pop, .k-success-ring, .k-success-check, .k-success-fade { animation: none; }
+}
+
+/* ── Shared motion utilities ─────────────────────────────── */
+@keyframes k-rise {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.k-rise { animation: k-rise 0.5s cubic-bezier(0.22, 1, 0.36, 1) both; animation-delay: var(--d, 0ms); }
+
+@keyframes k-fill {
+  from { transform: scaleX(0); }
+  to { transform: scaleX(1); }
+}
+.k-fill {
+  transform-origin: left center;
+  animation: k-fill 0.9s cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation-delay: var(--d, 120ms);
+}
+
+@keyframes k-grow {
+  from { transform: scaleY(0); }
+  to { transform: scaleY(1); }
+}
+.k-grow {
+  transform-origin: bottom center;
+  animation: k-grow 0.6s cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation-delay: var(--d, 0ms);
+}
+
+@keyframes k-pop {
+  0% { transform: scale(0.6); opacity: 0.4; }
+  60% { transform: scale(1.15); opacity: 1; }
+  100% { transform: scale(1); opacity: 1; }
+}
+.k-pop { animation: k-pop 0.28s cubic-bezier(0.34, 1.56, 0.64, 1) both; }
+
+@keyframes k-shake {
+  0%, 100% { transform: translateX(0); }
+  20% { transform: translateX(-7px); }
+  40% { transform: translateX(6px); }
+  60% { transform: translateX(-4px); }
+  80% { transform: translateX(2px); }
+}
+.k-shake { animation: k-shake 0.42s ease-in-out both; }
+
+@keyframes k-glow {
+  0%, 100% { box-shadow: 0 0 0 0 oklch(0.82 0.14 88 / 0.35); }
+  50% { box-shadow: 0 0 0 8px oklch(0.82 0.14 88 / 0); }
+}
+.k-glow { animation: k-glow 2.4s ease-out infinite; }
+
+@keyframes k-draw {
+  from { stroke-dashoffset: var(--len, 1000); }
+  to { stroke-dashoffset: 0; }
+}
+.k-draw {
+  stroke-dasharray: var(--len, 1000);
+  animation: k-draw 1.1s ease-out both;
+  animation-delay: var(--d, 150ms);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .k-rise, .k-fill, .k-grow, .k-pop, .k-shake, .k-glow, .k-draw {
+    animation: none;
+  }
+  .k-draw { stroke-dashoffset: 0; }
+}
