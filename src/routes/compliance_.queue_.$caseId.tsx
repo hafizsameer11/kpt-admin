@@ -337,10 +337,35 @@ function CaseReview() {
             <DialogTitle>{activeDoc?.label}</DialogTitle>
             <DialogDescription>Captured {activeDoc?.captured} · {record.name}</DialogDescription>
           </DialogHeader>
-          <div className="grid place-items-center rounded-2xl border border-dashed border-border bg-muted/40 p-12 text-center">
-            <FileText className="size-8 text-muted-foreground" />
-            <p className="mt-3 text-[13px] font-bold">{activeDoc?.note}</p>
-            <p className="mt-1 text-[12px] text-muted-foreground">Document preview is simulated in this prototype.</p>
+          <div className="grid place-items-center rounded-2xl border border-dashed border-border bg-muted/40 p-6 text-center">
+            {activeDoc?.url && /\.(jpg|jpeg|png|webp|gif)(\?|$)/i.test(activeDoc.url) ? (
+              <img src={activeDoc.url} alt={activeDoc.label} className="max-h-80 w-full rounded-xl object-contain" />
+            ) : activeDoc?.url ? (
+              <a
+                href={activeDoc.url}
+                target="_blank"
+                rel="noreferrer"
+                className="text-[13px] font-bold text-brand underline"
+              >
+                Open document
+              </a>
+            ) : (
+              <>
+                <FileText className="size-8 text-muted-foreground" />
+                <p className="mt-3 text-[13px] font-bold">{activeDoc?.note}</p>
+                <p className="mt-1 text-[12px] text-muted-foreground">No file URL on this submission.</p>
+              </>
+            )}
+            {activeDoc?.url ? (
+              <a
+                href={activeDoc.url}
+                target="_blank"
+                rel="noreferrer"
+                className="mt-4 text-[12.5px] font-bold text-brand underline"
+              >
+                Open in new tab
+              </a>
+            ) : null}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setActiveDoc(null)}>

@@ -26,7 +26,7 @@ import {
   fetchAdminWithdrawal,
   fetchAdminWithdrawals,
 } from "./admin-api";
-import type { ComplianceCase, CaseStatus } from "./admin-compliance-data";
+import type { ComplianceCase, CaseStatus, CaseDocument, ComplianceCheck } from "./admin-compliance-data";
 import type { FeedCard, FeedCardStatus } from "./admin-marketing-data";
 import type { AdminProduct, ProductCategory, ProductStatus } from "./admin-products-data";
 import type { RateBand, RateRequest, RateRequestStatus, RateStatus } from "./admin-rates-data";
@@ -228,9 +228,9 @@ export function mapWithdrawalRow(
     status,
     amount: row.amount,
     fee: 0,
-    bank: row.bank || "—",
-    accountName: row.accountName?.trim() || "—",
-    accountNumber: row.accountNumber || "—",
+    bank: row.bank || row.payoutBank?.bankName || "—",
+    accountName: row.accountName?.trim() || row.payoutBank?.accountName?.trim() || "—",
+    accountNumber: row.accountNumber || row.payoutBank?.accountNumber || "—",
     requestedAt: created,
     requestedDate: isoDay,
     source: "Wallet",
@@ -265,13 +265,46 @@ export function mapKycQueueItem(
   else if (statusRaw.includes("approv")) status = "approved";
   else if (statusRaw.includes("reject")) status = "rejected";
 
+  const documents: CaseDocument[] = [];
+  if (row.selfieUrl) {
+    documents.push({
+      label: "Selfie",
+      kind: "selfie",
+      captured: formatAdminDateTime(row.updatedAt),
+      note: "Stored for admin viewing",
+      url: row.selfieUrl,
+    });
+  }
+  if (row.addressDocUrl) {
+    documents.push({
+      label: "Proof of address",
+      kind: "address",
+      captured: formatAdminDateTime(row.updatedAt),
+      note: "Stored for admin viewing",
+      url: row.addressDocUrl,
+    });
+  }
+
+  const checks: ComplianceCheck[] = [
+    {
+      label: "BVN provider",
+      result: row.bvnProviderStatus === "SUCCESS" ? "pass" : row.bvnProviderStatus === "FAILED" ? "fail" : "pending",
+      detail: row.bvnProviderStatus || "—",
+    },
+    {
+      label: "NIN provider",
+      result: row.ninProviderStatus === "SUCCESS" ? "pass" : row.ninProviderStatus === "FAILED" ? "fail" : "pending",
+      detail: row.ninProviderStatus || "Awaiting Prembly",
+    },
+  ];
+
   return {
     id: row.userId,
     userId: row.userId,
     name: row.name || "—",
     email: displayEmail(row.email),
     phone: "—",
-    tier: 2,
+    tier: (row.tierTarget === 1 ? 1 : 2) as 1 | 2,
     status,
     priority: "standard",
     submitted: formatAdminDateTime(row.updatedAt),
@@ -279,11 +312,11 @@ export function mapKycQueueItem(
     slaHours: 6,
     ageHours: 0,
     assignee: "Unassigned",
-    trigger: "KYC submission",
+    trigger: row.tierTarget === 2 ? "Tier 2 · NIN check in progress" : "KYC submission",
     riskScore: 0,
-    checks: [],
-    documents: [],
-    timeline: [{ at: formatAdminDateTime(row.updatedAt), actor: "Customer", action: "Submitted for review" }],
+    checks,
+    documents,
+    timeline: [{ at: formatAdminDateTime(row.updatedAt), actor: "Customer", action: "Submitted documents" }],
   };
 }
 
@@ -465,6 +498,8 @@ export function mapSupportTicket(
     channel: "In-app chat",
     assignee: "Unassigned",
     firstResponse: "—",
+    attachmentUrl: row.attachmentUrl ?? null,
+    attachmentName: row.attachmentName ?? null,
     user: {
       id: row.user.id,
       name: row.user.name || "—",
@@ -483,6 +518,8 @@ export function mapSupportTicket(
         role: "customer",
         at: formatAdminDateTime(row.createdAt),
         body: row.body,
+        attachmentUrl: row.attachmentUrl ?? null,
+        attachmentName: row.attachmentName ?? null,
       },
     ],
     transactions: [],

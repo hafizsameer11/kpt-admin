@@ -16,6 +16,8 @@ export type TicketMessage = {
   role: "customer" | "agent" | "system";
   at: string;
   body: string;
+  attachmentUrl?: string | null;
+  attachmentName?: string | null;
 };
 
 export type TicketEvent = { at: string; label: string; by: string };
@@ -40,6 +42,8 @@ export type SupportTicket = {
   channel: "In-app chat" | "Email" | "Phone";
   assignee: string;
   firstResponse: string;
+  attachmentUrl?: string | null;
+  attachmentName?: string | null;
   user: {
     id: string;
     name: string;
