@@ -238,6 +238,19 @@ export async function fetchAdminUser(userId: string) {
     lastActive: string;
     balances: { wallet: number; call: number; fixed: number; explore: number };
     kyc: unknown;
+    kycDocuments?: {
+      selfieUrl: string | null;
+      addressDocUrl: string | null;
+      addressStreet: string | null;
+      addressCity: string | null;
+      addressState: string | null;
+      addressLga: string | null;
+      ninName: string | null;
+      bvnName: string | null;
+      occupation: string | null;
+      employmentStatus: string | null;
+      sourceOfFunds: string | null;
+    };
   }>(`/v1/admin/users/${userId}`);
 }
 
@@ -292,9 +305,22 @@ export async function setAdminUserFrozen(userId: string, frozen: boolean, reason
 }
 
 export async function fetchAdminKycQueue() {
-  return adminApi<{ userId: string; name: string; email: string | null; status: string; updatedAt: string }[]>(
-    "/v1/admin/kyc/queue",
-  );
+  return adminApi<
+    {
+      userId: string;
+      name: string;
+      email: string | null;
+      status: string;
+      updatedAt: string;
+      hasSelfie?: boolean;
+      hasAddressDoc?: boolean;
+      selfieUrl?: string | null;
+      addressDocUrl?: string | null;
+      ninProviderStatus?: string | null;
+      bvnProviderStatus?: string | null;
+      tierTarget?: number;
+    }[]
+  >("/v1/admin/kyc/queue");
 }
 
 export async function reviewAdminKyc(userId: string, approve: boolean, reason?: string) {
@@ -310,9 +336,15 @@ export type AdminWithdrawalRow = {
   status: string;
   amount: number;
   declineReason?: string | null;
-  bank: string;
+  bank?: string;
   accountName?: string;
-  accountNumber: string;
+  accountNumber?: string;
+  /** Legacy nested shape from older admin detail responses */
+  payoutBank?: {
+    bankName?: string;
+    accountName?: string;
+    accountNumber?: string;
+  };
   createdAt: string;
   processedAt?: string | null;
   user: {
@@ -447,6 +479,8 @@ export async function fetchAdminTickets() {
       subject: string;
       body: string;
       status: string;
+      attachmentUrl?: string | null;
+      attachmentName?: string | null;
       createdAt: string;
       updatedAt: string;
       user: { id: string; name: string; email: string | null };

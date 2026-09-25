@@ -201,6 +201,16 @@ function TicketDetailPage() {
                   <span className="text-[11.5px] text-muted-foreground">{m.at}</span>
                 </div>
                 <p className="text-[13px] leading-relaxed text-foreground/85">{m.body}</p>
+                {m.attachmentUrl ? (
+                  <a
+                    href={m.attachmentUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="mt-2 inline-flex text-[12px] font-bold text-brand hover:underline"
+                  >
+                    {m.attachmentName || "View attachment"}
+                  </a>
+                ) : null}
               </div>
             ))}
           </div>

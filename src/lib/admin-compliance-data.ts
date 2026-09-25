@@ -20,6 +20,8 @@ export type CaseDocument = {
   kind: "bvn" | "nin" | "selfie" | "address" | "occupation";
   captured: string;
   note: string;
+  /** Durable URL when available — admin can open/view the file. */
+  url?: string | null;
 };
 
 export type CaseEvent = {
