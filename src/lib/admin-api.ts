@@ -118,6 +118,21 @@ export async function adminUnlockSession(pin: string) {
   });
 }
 
+export async function fetchAdminUnlockPinStatus() {
+  return adminApi<{ hasPin: boolean }>("/v1/admin/session/pin");
+}
+
+export async function setAdminUnlockPin(input: {
+  password: string;
+  pin: string;
+  confirmPin: string;
+}) {
+  return adminApi<{ ok: boolean; hasPin: boolean }>("/v1/admin/session/pin", {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+}
+
 export async function adminLogout() {
   try {
     if (getAdminAccessToken()) {
