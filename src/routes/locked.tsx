@@ -68,7 +68,9 @@ function AdminLocked() {
       refs.current[0]?.focus();
       setError(
         err instanceof AdminApiError
-          ? err.message
+          ? err.code === "PIN_MISSING"
+            ? "Unlock PIN is not set. Open Profile → Security to set one."
+            : err.message
           : "Incorrect PIN. Try again or sign out completely.",
       );
     } finally {

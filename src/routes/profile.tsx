@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import {
   KeyRound,
+  LockKeyhole,
   LogOut,
   Mail,
   MonitorSmartphone,
@@ -15,6 +16,11 @@ import { toast } from "sonner";
 import { AdminShell } from "@/components/kipit/AdminShell";
 import { Panel, Stat } from "@/components/kipit/AdminBits";
 import { endAdminSession, getAdminSession } from "@/lib/admin-auth";
+import {
+  AdminApiError,
+  fetchAdminUnlockPinStatus,
+  setAdminUnlockPin,
+} from "@/lib/admin-api";
 import { hydrateAdminAuditFromApi, getLiveAuditLog } from "@/lib/admin-team-data";
 import {
   Dialog,
@@ -64,11 +70,18 @@ function AdminProfilePage() {
   const [revoked, setRevoked] = useState<string[]>([]);
   const [activity, setActivity] = useState<{ id: string; action: string; when: string }[]>([]);
   const [pwOpen, setPwOpen] = useState(false);
+  const [pinOpen, setPinOpen] = useState(false);
   const [twoFaOpen, setTwoFaOpen] = useState(false);
+  const [hasPin, setHasPin] = useState(false);
   const [current, setCurrent] = useState("");
   const [next, setNext] = useState("");
   const [confirm, setConfirm] = useState("");
   const [error, setError] = useState("");
+  const [pinPassword, setPinPassword] = useState("");
+  const [pin, setPin] = useState("");
+  const [pinConfirm, setPinConfirm] = useState("");
+  const [pinError, setPinError] = useState("");
+  const [pinBusy, setPinBusy] = useState(false);
 
   useEffect(() => {
     const session = getAdminSession();
@@ -77,6 +90,9 @@ function AdminProfilePage() {
       setRole(session.role);
       setEmail(session.email);
     }
+    void fetchAdminUnlockPinStatus()
+      .then((s) => setHasPin(s.hasPin))
+      .catch(() => setHasPin(false));
     void hydrateAdminAuditFromApi().then(() => {
       const emailLower = (getAdminSession()?.email || "").toLowerCase();
       const nameLower = (getAdminSession()?.name || "").toLowerCase();
@@ -166,6 +182,23 @@ function AdminProfilePage() {
                 helper="Change your sign-in password"
                 action="Change password"
                 onClick={() => setPwOpen(true)}
+              />
+              <SecurityRow
+                icon={LockKeyhole}
+                title="Unlock PIN"
+                helper={
+                  hasPin
+                    ? "4-digit PIN for idle lock — reset anytime with your password"
+                    : "Not set yet — required to unlock after idle lock"
+                }
+                action={hasPin ? "Reset PIN" : "Set PIN"}
+                onClick={() => {
+                  setPinError("");
+                  setPinPassword("");
+                  setPin("");
+                  setPinConfirm("");
+                  setPinOpen(true);
+                }}
               />
               <SecurityRow
                 icon={Smartphone}
@@ -334,6 +367,113 @@ function AdminProfilePage() {
         </DialogContent>
       </Dialog>
 
+      <Dialog
+        open={pinOpen}
+        onOpenChange={(open) => {
+          setPinOpen(open);
+          if (!open) {
+            setPinError("");
+            setPinPassword("");
+            setPin("");
+            setPinConfirm("");
+          }
+        }}
+      >
+        <DialogContent className="sm:max-w-[26rem]">
+          <DialogHeader>
+            <DialogTitle>{hasPin ? "Reset unlock PIN" : "Set unlock PIN"}</DialogTitle>
+            <DialogDescription>
+              This 4-digit PIN unlocks the console after idle lock. Confirm with your console
+              password.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <Field
+              label="Console password"
+              value={pinPassword}
+              onChange={setPinPassword}
+              type="password"
+            />
+            <Field
+              label="New unlock PIN"
+              value={pin}
+              onChange={(v) => setPin(v.replace(/\D/g, "").slice(0, 4))}
+              type="password"
+              inputMode="numeric"
+              autoComplete="off"
+              maxLength={4}
+            />
+            <Field
+              label="Confirm unlock PIN"
+              value={pinConfirm}
+              onChange={(v) => setPinConfirm(v.replace(/\D/g, "").slice(0, 4))}
+              type="password"
+              inputMode="numeric"
+              autoComplete="off"
+              maxLength={4}
+            />
+            {pinError ? (
+              <p className="text-[12.5px] font-semibold text-destructive">{pinError}</p>
+            ) : null}
+          </div>
+          <div className="mt-2 flex justify-end gap-2">
+            <button
+              type="button"
+              onClick={() => setPinOpen(false)}
+              className="rounded-lg border border-border px-3.5 py-2 text-[13px] font-bold transition hover:bg-muted"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              disabled={pinBusy}
+              onClick={() => {
+                if (!pinPassword) {
+                  setPinError("Enter your console password.");
+                  return;
+                }
+                if (!/^\d{4}$/.test(pin)) {
+                  setPinError("PIN must be exactly 4 digits.");
+                  return;
+                }
+                if (pin !== pinConfirm) {
+                  setPinError("PIN confirmation does not match.");
+                  return;
+                }
+                setPinBusy(true);
+                setPinError("");
+                void setAdminUnlockPin({
+                  password: pinPassword,
+                  pin,
+                  confirmPin: pinConfirm,
+                })
+                  .then(() => {
+                    setHasPin(true);
+                    setPinOpen(false);
+                    setPinPassword("");
+                    setPin("");
+                    setPinConfirm("");
+                    toast.success(hasPin ? "Unlock PIN updated" : "Unlock PIN set", {
+                      description: "Use this PIN when the console locks after inactivity.",
+                    });
+                  })
+                  .catch((err) => {
+                    setPinError(
+                      err instanceof AdminApiError
+                        ? err.message
+                        : "Could not save unlock PIN. Try again.",
+                    );
+                  })
+                  .finally(() => setPinBusy(false));
+              }}
+              className="rounded-lg bg-brand px-3.5 py-2 text-[13px] font-bold text-primary-foreground transition hover:opacity-90 disabled:opacity-50"
+            >
+              {pinBusy ? "Saving…" : hasPin ? "Reset PIN" : "Set PIN"}
+            </button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       <Dialog open={twoFaOpen} onOpenChange={setTwoFaOpen}>
         <DialogContent className="sm:max-w-[26rem]">
           <DialogHeader>
@@ -381,12 +521,18 @@ function Field({
   onChange,
   type = "text",
   disabled = false,
+  inputMode,
+  autoComplete,
+  maxLength,
 }: {
   label: string;
   value: string;
   onChange: (v: string) => void;
   type?: string;
   disabled?: boolean;
+  inputMode?: React.HTMLAttributes<HTMLInputElement>["inputMode"];
+  autoComplete?: string;
+  maxLength?: number;
 }) {
   return (
     <label className="block">
@@ -397,6 +543,9 @@ function Field({
         type={type}
         value={value}
         disabled={disabled}
+        inputMode={inputMode}
+        autoComplete={autoComplete}
+        maxLength={maxLength}
         onChange={(e) => onChange(e.target.value)}
         className="mt-1 w-full rounded-lg border border-border bg-card px-3 py-2 text-[13.5px] font-semibold outline-none transition focus:border-brand disabled:bg-muted/60 disabled:text-muted-foreground"
       />
