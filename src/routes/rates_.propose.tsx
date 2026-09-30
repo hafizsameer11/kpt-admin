@@ -7,7 +7,11 @@ import { AdminShell } from "@/components/kipit/AdminShell";
 import { Panel } from "@/components/kipit/AdminBits";
 import { compactNaira } from "@/lib/admin-data";
 import { proposeAdminRate } from "@/lib/admin-api";
-import { findBand, hydrateAdminRatesFromApi, type RateBand } from "@/lib/admin-rates-data";
+import { hydrateAdminRatesFromApi, type RateBand } from "@/lib/admin-rates-data";
+
+function isoToday() {
+  return new Date().toISOString().slice(0, 10);
+}
 
 export const Route = createFileRoute("/rates_/propose")({
   validateSearch: (search: Record<string, unknown>) => ({
@@ -48,15 +52,21 @@ function ProposeRatePage() {
   useEffect(() => {
     void hydrateAdminRatesFromApi().then((loaded) => {
       setBands(loaded);
-      if (!bandId && loaded[0]) setBandId(loaded[0].id);
+      setBandId((current) => {
+        if (current && loaded.some((b) => b.id === current)) return current;
+        if (band && loaded.some((b) => b.id === band)) return band;
+        return loaded[0]?.id ?? "";
+      });
     });
-  }, [bandId]);
+  }, [band]);
 
-  const selected = useMemo(() => findBand(bandId) ?? bands[0], [bandId, bands]);
+  const selected = useMemo(() => bands.find((b) => b.id === bandId) ?? bands[0], [bandId, bands]);
   const proposed = Number(rate);
-  const validRate = rate !== "" && !Number.isNaN(proposed) && proposed > 0 && proposed <= 40;
+  const validRate = rate !== "" && !Number.isNaN(proposed) && proposed >= 1 && proposed <= 40;
   const delta = validRate && selected ? proposed - selected.currentRate : 0;
-  const canSubmit = validRate && effectiveDate !== "" && reason.trim().length >= 10 && selected;
+  const todayIso = new Date().toISOString().slice(0, 10);
+  const validDate = effectiveDate !== "" && effectiveDate >= todayIso;
+  const canSubmit = validRate && validDate && reason.trim().length >= 10 && selected;
 
   function submit() {
     setTouched(true);
@@ -111,7 +121,7 @@ function ProposeRatePage() {
                   {(selected?.currentRate ?? 0).toFixed(2)}%
                 </div>
               </Field>
-              <Field label="Proposed rate" error={touched && !validRate ? "Enter a rate between 0 and 40%" : undefined}>
+              <Field label="Proposed rate" error={touched && !validRate ? "From 1% to 40%" : undefined}>
                 <div className="flex h-10 items-center gap-1 rounded-lg border border-border bg-card px-3 focus-within:border-brand/50">
                   <input
                     value={rate}
@@ -128,10 +138,19 @@ function ProposeRatePage() {
             <Field
               label="Effective date"
               hint="Applies to new placements from this date"
-              error={touched && !effectiveDate ? "Choose an effective date" : undefined}
+              error={
+                touched && !effectiveDate
+                  ? "Choose an effective date"
+                  : touched &&
+                      effectiveDate &&
+                      effectiveDate < new Date().toISOString().slice(0, 10)
+                    ? "Effective date must be today or later"
+                    : undefined
+              }
             >
               <input
                 type="date"
+                min={isoToday()}
                 value={effectiveDate}
                 onChange={(e) => setEffectiveDate(e.target.value)}
                 className="h-10 w-full rounded-lg border border-border bg-card px-3 text-[13.5px] font-semibold outline-none focus:border-brand/50"
@@ -161,8 +180,9 @@ function ProposeRatePage() {
               </Link>
               <button
                 type="button"
+                disabled={busy}
                 onClick={submit}
-                className="inline-flex items-center gap-2 rounded-lg bg-brand px-4 py-2 text-[12.5px] font-bold text-primary-foreground transition hover:opacity-90"
+                className="inline-flex items-center gap-2 rounded-lg bg-brand px-4 py-2 text-[12.5px] font-bold text-primary-foreground transition hover:opacity-90 disabled:opacity-40"
               >
                 Submit for approval
                 <ArrowRight className="size-4" />

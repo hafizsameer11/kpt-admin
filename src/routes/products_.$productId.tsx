@@ -100,7 +100,33 @@ function ProductDetailPage() {
   const [docName, setDocName] = useState("");
   const [docUrl, setDocUrl] = useState("");
   const [docKind, setDocKind] = useState<ProductDoc["kind"]>("Term sheet");
+  const [docSize, setDocSize] = useState("—");
   const [savingCms, setSavingCms] = useState(false);
+
+  function formatFileSize(bytes: number) {
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  }
+
+  async function handleDocFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      const dataUrl = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(String(reader.result));
+        reader.onerror = () => reject(reader.error);
+        reader.readAsDataURL(file);
+      });
+      setDocUrl(dataUrl);
+      setDocSize(formatFileSize(file.size));
+      if (!docName.trim()) setDocName(file.name.replace(/\.[^.]+$/, "") || file.name);
+    } catch {
+      toast.error("Could not read file");
+    }
+    e.target.value = "";
+  }
 
   const [rate, setRate] = useState(product ? String(product.rate) : "");
   const [minimum, setMinimum] = useState(product ? String(product.minimum) : "");
@@ -547,6 +573,17 @@ function ProductDetailPage() {
           <div className="space-y-3">
             <label className="block">
               <span className="mb-1.5 block text-[11px] font-bold uppercase tracking-[0.12em] text-muted-foreground">
+                File
+              </span>
+              <input
+                type="file"
+                accept=".pdf,application/pdf,image/jpeg,image/png,image/webp,image/gif"
+                onChange={(e) => void handleDocFile(e)}
+                className="w-full rounded-lg border border-border bg-background px-3 py-2 text-[13px] file:mr-3 file:rounded-md file:border-0 file:bg-brand/10 file:px-2.5 file:py-1 file:text-[12px] file:font-bold file:text-brand"
+              />
+            </label>
+            <label className="block">
+              <span className="mb-1.5 block text-[11px] font-bold uppercase tracking-[0.12em] text-muted-foreground">
                 File name
               </span>
               <input
@@ -595,11 +632,13 @@ function ProductDetailPage() {
               disabled={!docName.trim()}
               onClick={() => {
                 void (async () => {
+                  const trimmed = docName.trim();
+                  const hasExt = /\.[a-z0-9]+$/i.test(trimmed);
                   const entry: ProductDoc = {
                     id: replaceId ?? `new-${Date.now()}`,
-                    name: docName.trim().endsWith(".pdf") ? docName.trim() : `${docName.trim()}.pdf`,
+                    name: hasExt ? trimmed : `${trimmed}.pdf`,
                     kind: docKind,
-                    size: "—",
+                    size: docSize,
                     uploadedAt: "Just now",
                     uploadedBy: "You",
                     url: docUrl.trim() || undefined,
@@ -615,6 +654,7 @@ function ProductDetailPage() {
                     setReplaceId(null);
                     setDocName("");
                     setDocUrl("");
+                    setDocSize("—");
                   } catch (err) {
                     setDocs(docs);
                     toast.error(err instanceof Error ? err.message : "Could not save document");

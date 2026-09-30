@@ -90,12 +90,13 @@ export async function hydrateAdminDashboardFromApi() {
       fetchAdminMaturities,
       fetchAdminRecentActivity,
       fetchAdminTodayFlows,
+      fetchAdminFlowTrend,
       fetchAdminPrincipalByTenor,
       fetchAdminPrincipalByProduct,
       getAdminAccessToken,
     } = await import("./admin-api");
     if (!getAdminAccessToken()) return false;
-    const [dash, maturities, activity, flows, byTenor, byProduct] = await Promise.all([
+    const [dash, maturities, activity, flows, flowTrend, byTenor, byProduct] = await Promise.all([
       fetchAdminDashboard(),
       fetchAdminMaturities().catch(() => [] as typeof MATURITIES),
       fetchAdminRecentActivity().catch(() => [] as typeof RECENT_ACTIVITY),
@@ -105,6 +106,7 @@ export async function hydrateAdminDashboardFromApi() {
         interestCredits: 0,
         withdrawals: 0,
       })),
+      fetchAdminFlowTrend().catch(() => [] as { day: string; deposits: number; withdrawals: number }[]),
       fetchAdminPrincipalByTenor().catch(() => [] as typeof PRINCIPAL_BY_TENOR),
       fetchAdminPrincipalByProduct().catch(() => [] as typeof PRINCIPAL_BY_PRODUCT),
     ]);
@@ -119,6 +121,17 @@ export async function hydrateAdminDashboardFromApi() {
     INTEREST_PAYABLE = 0;
     for (let i = 0; i < FUM_SERIES.length; i++) FUM_SERIES[i] = 0;
     zeroDemoChartSeries();
+    if (flowTrend.length) {
+      FLOW_TREND.splice(
+        0,
+        FLOW_TREND.length,
+        ...flowTrend.map((row) => ({
+          day: row.day,
+          deposits: row.deposits,
+          withdrawals: row.withdrawals,
+        })),
+      );
+    }
     const byId: Record<string, number> = {
       wallet: WALLET_BALANCES,
       call: CALL_PRINCIPAL,
@@ -140,7 +153,19 @@ export async function hydrateAdminDashboardFromApi() {
       if (a.id === "maturities") a.count = maturities.filter((m) => m.window === "week").length;
       if (a.id === "recon" || a.id === "failed") a.count = 0;
     }
-    MATURITIES = maturities;
+    MATURITIES = maturities.map((m) => {
+      const row: MaturityRow = {
+        id: m.id,
+        user: m.user,
+        product: m.product,
+        principal: m.principal,
+        expected: m.expected,
+        date: m.date,
+        window: m.window,
+      };
+      if (m.maturityDate) row.maturityDate = m.maturityDate;
+      return row;
+    });
     RECENT_ACTIVITY = activity;
     TODAY_FLOWS.deposits = flows.deposits;
     TODAY_FLOWS.placements = flows.placements;
@@ -192,6 +217,7 @@ export type MaturityRow = {
   expected: number;
   date: string;
   window: "week" | "month";
+  maturityDate?: string;
 };
 
 export let MATURITIES: MaturityRow[] = [];
@@ -214,7 +240,7 @@ export const ALERTS: Alert[] = [
     count: 0,
     helper: "Awaiting compliance review",
     severity: "warning",
-    to: "/",
+    to: "/compliance/queue",
   },
   {
     id: "withdrawals",
@@ -222,7 +248,7 @@ export const ALERTS: Alert[] = [
     count: 0,
     helper: "Awaiting processing",
     severity: "critical",
-    to: "/",
+    to: "/withdrawals",
   },
   {
     id: "recon",
@@ -230,7 +256,7 @@ export const ALERTS: Alert[] = [
     count: 0,
     helper: "Provider vs ledger variance",
     severity: "critical",
-    to: "/",
+    to: "/reconciliation",
   },
   {
     id: "failed",
@@ -238,7 +264,7 @@ export const ALERTS: Alert[] = [
     count: 0,
     helper: "Card and transfer failures today",
     severity: "warning",
-    to: "/",
+    to: "/transactions",
   },
   {
     id: "maturities",

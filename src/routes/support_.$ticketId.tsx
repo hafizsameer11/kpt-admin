@@ -202,14 +202,26 @@ function TicketDetailPage() {
                 </div>
                 <p className="text-[13px] leading-relaxed text-foreground/85">{m.body}</p>
                 {m.attachmentUrl ? (
-                  <a
-                    href={m.attachmentUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="mt-2 inline-flex text-[12px] font-bold text-brand hover:underline"
-                  >
-                    {m.attachmentName || "View attachment"}
-                  </a>
+                  <div className="mt-3 space-y-2">
+                    {/\.(jpe?g|png|webp|gif)(\?|#|$)/i.test(m.attachmentUrl) ||
+                    /\.(jpe?g|png|webp|gif)(\?|#|$)/i.test(m.attachmentName || "") ? (
+                      <a href={m.attachmentUrl} target="_blank" rel="noreferrer" className="block overflow-hidden rounded-xl border border-border">
+                        <img
+                          src={m.attachmentUrl}
+                          alt={m.attachmentName || "Attachment"}
+                          className="max-h-56 w-full object-cover"
+                        />
+                      </a>
+                    ) : null}
+                    <a
+                      href={m.attachmentUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex text-[12px] font-bold text-brand hover:underline"
+                    >
+                      {m.attachmentName || "View attachment"}
+                    </a>
+                  </div>
                 ) : null}
               </div>
             ))}

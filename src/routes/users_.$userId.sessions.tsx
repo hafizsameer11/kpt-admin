@@ -29,8 +29,10 @@ function Sessions() {
   const [rows, setRows] = useState<AdminSession[]>([]);
   const [target, setTarget] = useState<AdminSession | null>(null);
 
+  const reload = () => void loadAdminUserSessions(userId).then(setRows);
+
   useEffect(() => {
-    void loadAdminUserSessions(userId).then(setRows);
+    reload();
   }, [userId]);
 
   return (
@@ -106,7 +108,7 @@ function Sessions() {
                     toast.success("Session revoked", {
                       description: "Recorded in the audit log.",
                     });
-                    window.location.reload();
+                    reload();
                   } catch (err) {
                     toast.error(err instanceof Error ? err.message : "Could not revoke session");
                   }

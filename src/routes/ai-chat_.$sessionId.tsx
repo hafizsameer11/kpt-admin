@@ -11,7 +11,9 @@ import {
   OUTCOME_TONE,
   hydrateAdminChatSessionFromApi,
   sessionById,
+  type ChatSession,
 } from "@/lib/admin-chat-data";
+import { AdminApiError, patchAdminChatSession } from "@/lib/admin-api";
 
 export const Route = createFileRoute("/ai-chat_/$sessionId")({
   head: () => ({
@@ -37,7 +39,8 @@ export const Route = createFileRoute("/ai-chat_/$sessionId")({
 
 function AiChatSessionPage() {
   const { sessionId } = useParams({ from: "/ai-chat_/$sessionId" });
-  const [session, setSession] = useState<ReturnType<typeof sessionById>>(undefined);
+  const [session, setSession] = useState<ChatSession | null | undefined>(undefined);
+  const [flagBusy, setFlagBusy] = useState(false);
 
   useEffect(() => {
     void hydrateAdminChatSessionFromApi(sessionId).then((s) => {
@@ -95,9 +98,20 @@ function AiChatSessionPage() {
         <div className="ml-auto flex gap-2">
           <button
             type="button"
-            onClick={() =>
-              toast.success(session.flagged ? "Flag cleared" : "Conversation flagged for review")
-            }
+            disabled={flagBusy}
+            onClick={() => {
+              const next = !session.flagged;
+              setFlagBusy(true);
+              void patchAdminChatSession(session.id, { flagged: next })
+                .then(() => {
+                  setSession((s) => (s ? { ...s, flagged: next } : s));
+                  toast.success(next ? "Conversation flagged for review" : "Flag cleared");
+                })
+                .catch((err) =>
+                  toast.error(err instanceof AdminApiError ? err.message : "Could not update flag"),
+                )
+                .finally(() => setFlagBusy(false));
+            }}
             className="inline-flex h-9 items-center gap-2 rounded-lg border border-border bg-muted/40 px-3 text-[12.5px] font-bold transition hover:text-foreground"
           >
             <Flag className="size-4" />

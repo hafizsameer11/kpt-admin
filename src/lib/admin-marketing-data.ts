@@ -127,6 +127,22 @@ export const SEGMENTS: Segment[] = [
   },
 ];
 
+/** Fill SEGMENTS[].size from live user counts (mutates in place). */
+export async function hydrateAudienceSegmentsFromApi() {
+  try {
+    const { getAdminAccessToken, fetchMarketingAudienceCount } = await import("./admin-api");
+    if (!getAdminAccessToken()) return SEGMENTS;
+    const data = await fetchMarketingAudienceCount();
+    const sizes = data.segments ?? { "All customers": data.total };
+    for (const seg of SEGMENTS) {
+      seg.size = sizes[seg.name] ?? (seg.id === "seg-all" ? data.total : seg.size);
+    }
+    return SEGMENTS;
+  } catch {
+    return SEGMENTS;
+  }
+}
+
 export const FEED_CARDS: FeedCard[] = [];
 
 export type DigestDefaults = {

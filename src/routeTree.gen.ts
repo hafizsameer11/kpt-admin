@@ -65,6 +65,7 @@ import { Route as ComplianceAmlAlertIdRouteImport } from './routes/compliance_.a
 import { Route as ComplianceQueueCaseIdRouteImport } from './routes/compliance_.queue_.$caseId'
 import { Route as MarketingCampaignsCampaignIdRouteImport } from './routes/marketing_.campaigns_.$campaignId'
 import { Route as MarketingCampaignsNewRouteImport } from './routes/marketing_.campaigns_.new'
+import { Route as MarketingFeedCardIdRouteImport } from './routes/marketing_.feed_.$cardId'
 import { Route as MarketingFeedNewRouteImport } from './routes/marketing_.feed_.new'
 import { Route as RatesApprovalsRequestIdRouteImport } from './routes/rates_.approvals_.$requestId'
 import { Route as ReconciliationRecordsRecordIdRouteImport } from './routes/reconciliation_.records_.$recordId'
@@ -359,6 +360,11 @@ const MarketingCampaignsNewRoute = MarketingCampaignsNewRouteImport.update({
   path: '/marketing/campaigns/new',
   getParentRoute: () => rootRouteImport,
 } as any)
+const MarketingFeedCardIdRoute = MarketingFeedCardIdRouteImport.update({
+  id: '/marketing_/feed_/$cardId',
+  path: '/marketing/feed/$cardId',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const MarketingFeedNewRoute = MarketingFeedNewRouteImport.update({
   id: '/marketing_/feed_/new',
   path: '/marketing/feed/new',
@@ -478,6 +484,7 @@ export interface FileRoutesByFullPath {
   '/compliance/queue/$caseId': typeof ComplianceQueueCaseIdRoute
   '/marketing/campaigns/$campaignId': typeof MarketingCampaignsCampaignIdRoute
   '/marketing/campaigns/new': typeof MarketingCampaignsNewRoute
+  '/marketing/feed/$cardId': typeof MarketingFeedCardIdRoute
   '/marketing/feed/new': typeof MarketingFeedNewRoute
   '/rates/approvals/$requestId': typeof RatesApprovalsRequestIdRoute
   '/reconciliation/records/$recordId': typeof ReconciliationRecordsRecordIdRoute
@@ -547,6 +554,7 @@ export interface FileRoutesByTo {
   '/compliance/queue/$caseId': typeof ComplianceQueueCaseIdRoute
   '/marketing/campaigns/$campaignId': typeof MarketingCampaignsCampaignIdRoute
   '/marketing/campaigns/new': typeof MarketingCampaignsNewRoute
+  '/marketing/feed/$cardId': typeof MarketingFeedCardIdRoute
   '/marketing/feed/new': typeof MarketingFeedNewRoute
   '/rates/approvals/$requestId': typeof RatesApprovalsRequestIdRoute
   '/reconciliation/records/$recordId': typeof ReconciliationRecordsRecordIdRoute
@@ -618,6 +626,7 @@ export interface FileRoutesById {
   '/compliance_/queue_/$caseId': typeof ComplianceQueueCaseIdRoute
   '/marketing_/campaigns_/$campaignId': typeof MarketingCampaignsCampaignIdRoute
   '/marketing_/campaigns_/new': typeof MarketingCampaignsNewRoute
+  '/marketing_/feed_/$cardId': typeof MarketingFeedCardIdRoute
   '/marketing_/feed_/new': typeof MarketingFeedNewRoute
   '/rates_/approvals_/$requestId': typeof RatesApprovalsRequestIdRoute
   '/reconciliation_/records_/$recordId': typeof ReconciliationRecordsRecordIdRoute
@@ -690,6 +699,7 @@ export interface FileRouteTypes {
     | '/compliance/queue/$caseId'
     | '/marketing/campaigns/$campaignId'
     | '/marketing/campaigns/new'
+    | '/marketing/feed/$cardId'
     | '/marketing/feed/new'
     | '/rates/approvals/$requestId'
     | '/reconciliation/records/$recordId'
@@ -759,6 +769,7 @@ export interface FileRouteTypes {
     | '/compliance/queue/$caseId'
     | '/marketing/campaigns/$campaignId'
     | '/marketing/campaigns/new'
+    | '/marketing/feed/$cardId'
     | '/marketing/feed/new'
     | '/rates/approvals/$requestId'
     | '/reconciliation/records/$recordId'
@@ -829,6 +840,7 @@ export interface FileRouteTypes {
     | '/compliance_/queue_/$caseId'
     | '/marketing_/campaigns_/$campaignId'
     | '/marketing_/campaigns_/new'
+    | '/marketing_/feed_/$cardId'
     | '/marketing_/feed_/new'
     | '/rates_/approvals_/$requestId'
     | '/reconciliation_/records_/$recordId'
@@ -900,6 +912,7 @@ export interface RootRouteChildren {
   ComplianceQueueCaseIdRoute: typeof ComplianceQueueCaseIdRoute
   MarketingCampaignsCampaignIdRoute: typeof MarketingCampaignsCampaignIdRoute
   MarketingCampaignsNewRoute: typeof MarketingCampaignsNewRoute
+  MarketingFeedCardIdRoute: typeof MarketingFeedCardIdRoute
   MarketingFeedNewRoute: typeof MarketingFeedNewRoute
   RatesApprovalsRequestIdRoute: typeof RatesApprovalsRequestIdRoute
   ReconciliationRecordsRecordIdRoute: typeof ReconciliationRecordsRecordIdRoute
@@ -1299,6 +1312,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof MarketingCampaignsNewRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/marketing_/feed_/$cardId': {
+      id: '/marketing_/feed_/$cardId'
+      path: '/marketing/feed/$cardId'
+      fullPath: '/marketing/feed/$cardId'
+      preLoaderRoute: typeof MarketingFeedCardIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/marketing_/feed_/new': {
       id: '/marketing_/feed_/new'
       path: '/marketing/feed/new'
@@ -1471,6 +1491,7 @@ const rootRouteChildren: RootRouteChildren = {
   ComplianceQueueCaseIdRoute: ComplianceQueueCaseIdRoute,
   MarketingCampaignsCampaignIdRoute: MarketingCampaignsCampaignIdRoute,
   MarketingCampaignsNewRoute: MarketingCampaignsNewRoute,
+  MarketingFeedCardIdRoute: MarketingFeedCardIdRoute,
   MarketingFeedNewRoute: MarketingFeedNewRoute,
   RatesApprovalsRequestIdRoute: RatesApprovalsRequestIdRoute,
   ReconciliationRecordsRecordIdRoute: ReconciliationRecordsRecordIdRoute,

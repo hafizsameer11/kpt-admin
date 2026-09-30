@@ -18,7 +18,10 @@ import { Panel, Stat } from "@/components/kipit/AdminBits";
 import { endAdminSession, getAdminSession } from "@/lib/admin-auth";
 import {
   AdminApiError,
+  changeAdminPassword,
+  fetchAdminMe,
   fetchAdminUnlockPinStatus,
+  patchAdminMe,
   setAdminUnlockPin,
 } from "@/lib/admin-api";
 import { hydrateAdminAuditFromApi, getLiveAuditLog } from "@/lib/admin-team-data";
@@ -90,6 +93,16 @@ function AdminProfilePage() {
       setRole(session.role);
       setEmail(session.email);
     }
+    void fetchAdminMe()
+      .then((me) => {
+        setName(me.name);
+        setRole(me.role);
+        setEmail(me.email);
+        setPhone(me.phone ?? "");
+      })
+      .catch(() => {
+        /* session fallback above */
+      });
     void fetchAdminUnlockPinStatus()
       .then((s) => setHasPin(s.hasPin))
       .catch(() => setHasPin(false));
@@ -166,7 +179,17 @@ function AdminProfilePage() {
             <div className="mt-4 flex justify-end">
               <button
                 type="button"
-                onClick={() => toast.success("Profile updated")}
+                onClick={() => {
+                  void patchAdminMe({ name: name.trim(), phone: phone.replace(/\D/g, "") || undefined })
+                    .then((me) => {
+                      setName(me.name);
+                      setPhone(me.phone ?? "");
+                      toast.success("Profile updated");
+                    })
+                    .catch((err) =>
+                      toast.error(err instanceof AdminApiError ? err.message : "Could not save profile"),
+                    );
+                }}
                 className="rounded-lg bg-brand px-4 py-2 text-[13px] font-bold text-primary-foreground transition hover:opacity-90"
               >
                 Save changes
@@ -346,18 +369,28 @@ function AdminProfilePage() {
                   setError("Enter your current password and a new one of at least 12 characters.");
                   return;
                 }
+                if (!/\d/.test(next) || !/[^A-Za-z0-9]/.test(next)) {
+                  setError("New password must include a number and a symbol.");
+                  return;
+                }
                 if (next !== confirm) {
                   setError("The new passwords do not match.");
                   return;
                 }
-                setError("");
-                setPwOpen(false);
-                setCurrent("");
-                setNext("");
-                setConfirm("");
-                toast.success("Password changed", {
-                  description: "Other sessions were signed out.",
-                });
+                void changeAdminPassword({ currentPassword: current, newPassword: next })
+                  .then(() => {
+                    setError("");
+                    setPwOpen(false);
+                    setCurrent("");
+                    setNext("");
+                    setConfirm("");
+                    toast.success("Password changed", {
+                      description: "Other sessions were signed out.",
+                    });
+                  })
+                  .catch((err) =>
+                    setError(err instanceof AdminApiError ? err.message : "Could not change password"),
+                  );
               }}
               className="rounded-lg bg-brand px-3.5 py-2 text-[13px] font-bold text-primary-foreground transition hover:opacity-90"
             >
@@ -479,11 +512,21 @@ function AdminProfilePage() {
           <DialogHeader>
             <DialogTitle>Replace two-factor device</DialogTitle>
             <DialogDescription>
-              Scan the setup key in your authenticator app, then enter the 6-digit code it shows.
+              Enter the setup key in your authenticator app (or scan the QR), then enter the 6-digit
+              code it shows.
             </DialogDescription>
           </DialogHeader>
           <div className="rounded-xl border border-dashed border-border bg-muted/40 p-4 text-center">
-            <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+            <img
+              src={`https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${encodeURIComponent(
+                "otpauth://totp/Kipit%20Admin:operator?secret=KPIT4RQ28LMD91XZ&issuer=Kipit%20Admin",
+              )}`}
+              alt="Authenticator QR code"
+              width={160}
+              height={160}
+              className="mx-auto rounded-lg bg-white p-2"
+            />
+            <p className="mt-3 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
               Setup key
             </p>
             <p className="mt-1 font-mono text-[15px] font-bold tracking-[0.16em]">

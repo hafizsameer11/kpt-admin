@@ -7,10 +7,12 @@ import { AdminShell } from "@/components/kipit/AdminShell";
 import { Panel, Stat } from "@/components/kipit/AdminBits";
 import {
   hydrateAdminDigestFromApi,
+  hydrateAudienceSegmentsFromApi,
   SEGMENTS,
   type DigestDefaults,
+  type Segment,
 } from "@/lib/admin-marketing-data";
-import { AdminApiError, putAdminDigest } from "@/lib/admin-api";
+import { AdminApiError, putAdminDigest, sendMarketingDigestNow } from "@/lib/admin-api";
 
 export const Route = createFileRoute("/marketing_/digest")({
   head: () => ({
@@ -44,6 +46,7 @@ function DigestPage() {
   const [sendTime, setSendTime] = useState("07:30");
   const [audience, setAudience] = useState("seg-active");
   const [saving, setSaving] = useState(false);
+  const [segments, setSegments] = useState<Segment[]>(() => SEGMENTS.map((s) => ({ ...s })));
 
   useEffect(() => {
     void hydrateAdminDigestFromApi().then((d) => {
@@ -52,9 +55,12 @@ function DigestPage() {
       setSendTime(d.sendTime);
       setAudience(d.audience);
     });
+    void hydrateAudienceSegmentsFromApi().then(() =>
+      setSegments(SEGMENTS.map((s) => ({ ...s }))),
+    );
   }, []);
 
-  const segment = SEGMENTS.find((s) => s.id === audience) ?? SEGMENTS[0]!;
+  const segment = segments.find((s) => s.id === audience) ?? segments[0]!;
   const lastRunParts = digest.lastRun.split(" ");
 
   async function saveSettings(nextEnabled = enabled) {
@@ -163,7 +169,7 @@ function DigestPage() {
                 onChange={(e) => setAudience(e.target.value)}
                 className="w-full rounded-lg border border-border bg-background px-3 py-2.5 text-[13.5px] outline-none focus:border-brand/50"
               >
-                {SEGMENTS.map((s) => (
+                {segments.map((s) => (
                   <option key={s.id} value={s.id}>
                     {s.name} — {s.size.toLocaleString("en-NG")}
                   </option>
@@ -179,6 +185,22 @@ function DigestPage() {
             className="mt-5 w-full rounded-xl bg-brand px-4 py-3 text-[13.5px] font-bold text-primary-foreground"
           >
             Save settings
+          </button>
+          <button
+            type="button"
+            disabled={saving}
+            onClick={() => {
+              void sendMarketingDigestNow()
+                .then((r) =>
+                  toast.success(`Digest job queued for ${r.recipientCount.toLocaleString("en-NG")} customers`),
+                )
+                .catch((err) =>
+                  toast.error(err instanceof AdminApiError ? err.message : "Could not send digest"),
+                );
+            }}
+            className="mt-3 w-full rounded-xl border border-border px-4 py-3 text-[13.5px] font-bold transition hover:bg-muted"
+          >
+            Send digest now
           </button>
         </Panel>
 

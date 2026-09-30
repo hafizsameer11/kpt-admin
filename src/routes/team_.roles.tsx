@@ -12,6 +12,7 @@ import {
   hydrateAdminTeamFromApi,
   type AdminRoleId,
 } from "@/lib/admin-team-data";
+import { AdminApiError, fetchAdminRolePermissions, putAdminRolePermissions } from "@/lib/admin-api";
 
 export const Route = createFileRoute("/team_/roles")({
   head: () => ({
@@ -44,13 +45,20 @@ function RolesPage() {
   const [memberCounts, setMemberCounts] = useState<Record<string, number>>({});
 
   useEffect(() => {
-    void hydrateAdminTeamFromApi().then((members) => {
-      const counts: Record<string, number> = {};
-      for (const m of members) {
-        counts[m.role] = (counts[m.role] ?? 0) + 1;
-      }
-      setMemberCounts(counts);
-    });
+    void Promise.all([hydrateAdminTeamFromApi(), fetchAdminRolePermissions()])
+      .then(([members, stored]) => {
+        const counts: Record<string, number> = {};
+        for (const m of members) {
+          counts[m.role] = (counts[m.role] ?? 0) + 1;
+        }
+        setMemberCounts(counts);
+        if (stored && Object.keys(stored).length) {
+          setGrants((prev) => ({ ...prev, ...stored }));
+        }
+      })
+      .catch(() => {
+        /* keep defaults */
+      });
   }, []);
 
   const role = ADMIN_ROLES.find((r) => r.id === selectedId)!;
@@ -159,8 +167,16 @@ function RolesPage() {
               type="button"
               disabled={!dirty || locked}
               onClick={() => {
-                setDirty(false);
-                toast.success(`${role.name} permissions updated`);
+                void putAdminRolePermissions(grants)
+                  .then(() => {
+                    setDirty(false);
+                    toast.success(`${role.name} permissions updated`);
+                  })
+                  .catch((err) =>
+                    toast.error(
+                      err instanceof AdminApiError ? err.message : "Could not save permissions",
+                    ),
+                  );
               }}
               className={`rounded-lg px-3.5 py-2 text-[12.5px] font-bold transition ${
                 dirty && !locked

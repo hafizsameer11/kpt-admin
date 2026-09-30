@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { z } from "zod";
-import { Search, SearchX } from "lucide-react";
+import { ArrowLeft, Search, SearchX, X } from "lucide-react";
 
 import { AdminShell } from "@/components/kipit/AdminShell";
 import { Panel } from "@/components/kipit/AdminBits";
@@ -56,7 +56,16 @@ function GlobalSearchPage() {
     <AdminShell
       title="Search"
       subtitle={q ? `${results.length} results for “${q}”` : "Customers, records and pages"}
+      hideHeaderSearch
     >
+      <Link
+        to="/"
+        className="mb-4 inline-flex items-center gap-2 text-[13px] font-bold text-brand transition hover:opacity-80"
+      >
+        <ArrowLeft className="size-4" />
+        Executive dashboard
+      </Link>
+
       <form
         onSubmit={(e) => {
           e.preventDefault();
@@ -73,6 +82,19 @@ function GlobalSearchPage() {
             placeholder="Search a name, email, reference, product or page…"
             className="w-full bg-transparent text-[14px] font-semibold outline-none"
           />
+          {term ? (
+            <button
+              type="button"
+              aria-label="Clear search"
+              onClick={() => {
+                setTerm("");
+                submit("");
+              }}
+              className="shrink-0 text-muted-foreground transition hover:text-foreground"
+            >
+              <X className="size-4" />
+            </button>
+          ) : null}
         </label>
         <button
           type="submit"

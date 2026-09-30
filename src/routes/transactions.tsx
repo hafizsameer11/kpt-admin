@@ -160,6 +160,8 @@ function TransactionsPage() {
   const [period, setPeriod] = useState<Period>("month");
   const [from, setFrom] = useState(() => isoDaysAgo(30));
   const [to, setTo] = useState(() => isoToday());
+  const [appliedFrom, setAppliedFrom] = useState(() => isoDaysAgo(30));
+  const [appliedTo, setAppliedTo] = useState(() => isoToday());
   const [type, setType] = useState<string>("all");
   const [status, setStatus] = useState<string>("all");
   const [product, setProduct] = useState<string>("all");
@@ -181,13 +183,13 @@ function TransactionsPage() {
       if (channel !== "all" && t.channel !== channel) return false;
       if (period === "day" && t.date !== today) return false;
       if (period === "month" && (t.date < monthStart || t.date > today)) return false;
-      if (period === "custom" && (t.date < from || t.date > to)) return false;
+      if (period === "custom" && (t.date < appliedFrom || t.date > appliedTo)) return false;
       if (!q) return true;
       return [t.userName, t.userEmail, t.ref, t.label, t.channel].some((f) =>
         f.toLowerCase().includes(q),
       );
     });
-  }, [ledger, period, from, to, type, status, product, channel, query]);
+  }, [ledger, period, appliedFrom, appliedTo, type, status, product, channel, query]);
 
   const dailyFlow = useMemo(() => buildDailyFlow(rows.length ? rows : ledger), [rows, ledger]);
   const filteredVolume = rows.reduce((s, t) => s + t.amount, 0);
@@ -281,7 +283,7 @@ function TransactionsPage() {
             </div>
 
             {period === "custom" ? (
-              <div className="flex items-end gap-2">
+              <div className="flex flex-wrap items-end gap-2">
                 <label className="flex flex-col gap-1">
                   <span className="text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground">
                     From
@@ -304,6 +306,34 @@ function TransactionsPage() {
                     className="h-9 rounded-lg border border-border bg-card px-2.5 text-[13px] font-semibold outline-none"
                   />
                 </label>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (from > to) {
+                      toast.error("From date must be on or before To date");
+                      return;
+                    }
+                    setAppliedFrom(from);
+                    setAppliedTo(to);
+                  }}
+                  className="h-9 rounded-lg bg-brand px-3 text-[12.5px] font-bold text-primary-foreground"
+                >
+                  Apply
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const f = isoDaysAgo(30);
+                    const t = isoToday();
+                    setFrom(f);
+                    setTo(t);
+                    setAppliedFrom(f);
+                    setAppliedTo(t);
+                  }}
+                  className="h-9 rounded-lg border border-border px-3 text-[12.5px] font-bold"
+                >
+                  Reset
+                </button>
               </div>
             ) : null}
 

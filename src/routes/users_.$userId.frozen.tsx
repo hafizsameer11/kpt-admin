@@ -14,7 +14,8 @@ import { toast } from "sonner";
 
 import { Panel, Stat } from "@/components/kipit/AdminBits";
 import { findUser, hydrateAdminUserFromApi, portfolioValue, type AdminUser } from "@/lib/admin-users-data";
-import { setAdminUserFrozen } from "@/lib/admin-api";
+import { fetchAdminAudit, setAdminUserFrozen } from "@/lib/admin-api";
+import { formatAdminDateTime } from "@/lib/admin-mappers";
 import { naira } from "@/lib/admin-data";
 import {
   Dialog,
@@ -34,6 +35,34 @@ export const Route = createFileRoute("/users_/$userId/frozen")({
   component: FrozenState,
 });
 
+type RestrictionEvent = {
+  id: string;
+  title: string;
+  detail: string;
+  by: string;
+  when: string;
+};
+
+function auditEventDetail(after: unknown, before: unknown): string {
+  const pick = (value: unknown) => {
+    if (value == null) return null;
+    if (typeof value === "object" && value !== null && "reason" in value) {
+      const reason = (value as { reason?: unknown }).reason;
+      if (typeof reason === "string" && reason.trim()) return reason.trim();
+    }
+    if (typeof value === "string" && value.trim()) {
+      try {
+        const parsed = JSON.parse(value) as { reason?: string };
+        if (parsed.reason?.trim()) return parsed.reason.trim();
+      } catch {
+        return value.trim();
+      }
+    }
+    return null;
+  };
+  return pick(after) ?? pick(before) ?? "—";
+}
+
 const RESTRICTIONS = [
   { label: "Wallet funding", blocked: true },
   { label: "New investments", blocked: true },
@@ -51,6 +80,7 @@ function FrozenState() {
   const [freezeOpen, setFreezeOpen] = useState(false);
   const [reason, setReason] = useState("");
   const [busy, setBusy] = useState(false);
+  const [timeline, setTimeline] = useState<RestrictionEvent[]>([]);
 
   useEffect(() => {
     void hydrateAdminUserFromApi(initial.id).then((u) => {
@@ -60,18 +90,35 @@ function FrozenState() {
     });
   }, [initial.id]);
 
-  const timeline =
-    frozen && user.freeze
-      ? [
-          {
-            id: "t-freeze",
-            title: "Account frozen",
-            detail: user.freeze.reason || "Compliance review",
-            by: user.freeze.by || "Compliance",
-            when: user.freeze.date || "—",
-          },
-        ]
-      : [];
+  const loadRestrictionHistory = () => {
+    void fetchAdminAudit().then((rows) => {
+      const events = rows
+        .filter(
+          (r) =>
+            r.entityId === initial.id &&
+            (r.action === "user.frozen" || r.action === "user.unfrozen"),
+        )
+        .sort(
+          (a, b) =>
+            new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
+        )
+        .map((r) => ({
+          id: r.id,
+          title: r.action === "user.frozen" ? "Account frozen" : "Restriction lifted",
+          detail: auditEventDetail(r.after, r.before),
+          by:
+            r.actorName?.trim() ||
+            r.actorEmail?.trim() ||
+            (r.actorAdminId ? "Administrator" : "System"),
+          when: formatAdminDateTime(r.createdAt),
+        }));
+      setTimeline(events);
+    });
+  };
+
+  useEffect(() => {
+    loadRestrictionHistory();
+  }, [initial.id]);
 
   async function applyFreeze() {
     if (!reason.trim()) return;
@@ -84,6 +131,7 @@ function FrozenState() {
       toast.success("Account frozen", { description: `${user.name} is now restricted.` });
       const refreshed = await hydrateAdminUserFromApi(user.id);
       if (refreshed) setUser(refreshed);
+      loadRestrictionHistory();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to freeze account");
     } finally {
@@ -100,6 +148,7 @@ function FrozenState() {
       toast.success("Restriction lifted", { description: `${user.name} has full access.` });
       const refreshed = await hydrateAdminUserFromApi(user.id);
       if (refreshed) setUser(refreshed);
+      loadRestrictionHistory();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to lift restriction");
     } finally {

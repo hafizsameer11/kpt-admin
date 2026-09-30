@@ -218,7 +218,7 @@ function WithdrawalQueuePage() {
                     </td>
                     <td className="px-5 py-3">
                       <span
-                        className={`rounded-full px-2.5 py-1 text-[11px] font-bold ring-1 ${WITHDRAWAL_STATUS_TONE[w.status]}`}
+                        className={`whitespace-nowrap rounded-full px-2.5 py-1 text-[11px] font-bold ring-1 ${WITHDRAWAL_STATUS_TONE[w.status]}`}
                       >
                         {WITHDRAWAL_STATUS_LABEL[w.status]}
                       </span>
