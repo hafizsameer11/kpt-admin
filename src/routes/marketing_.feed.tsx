@@ -131,7 +131,8 @@ function FeedManagerPage() {
                 </span>
                 <span className="flex gap-2">
                   <Link
-                    to="/marketing/feed/new"
+                    to="/marketing/feed/$cardId"
+                    params={{ cardId: c.id }}
                     className="rounded-lg border border-border px-2.5 py-1.5 text-[12px] font-bold transition hover:border-brand/40 hover:text-brand"
                   >
                     Edit

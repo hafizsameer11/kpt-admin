@@ -11,6 +11,7 @@ import {
   roleById,
   type AdminRoleId,
 } from "@/lib/admin-team-data";
+import { AdminApiError } from "@/lib/admin-api";
 
 export const Route = createFileRoute("/team_/new")({
   head: () => ({
@@ -47,14 +48,23 @@ function NewAdminPage() {
   const [makerChecker, setMakerChecker] = useState(false);
   const [sent, setSent] = useState(false);
   const [touched, setTouched] = useState(false);
+  const [emailError, setEmailError] = useState("");
+  const [busy, setBusy] = useState(false);
 
   const selected = roleById(role);
   const emailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
-  const valid = name.trim().length > 2 && emailValid;
+  const phoneDigits = phone.replace(/\D/g, "");
+  /** Digits only (optional + / spaces / dashes / parens for formatting). */
+  const phoneValid =
+    !phone.trim() ||
+    (/^[\d\s+\-()]+$/.test(phone.trim()) && phoneDigits.length >= 10);
+  const valid = name.trim().length > 2 && emailValid && phoneValid;
 
   const submit = () => {
     setTouched(true);
+    setEmailError("");
     if (!valid) return;
+    // UI roles → AdminRole enum (no SUPPORT; map closest existing roles, keep UI labels)
     const roleMap: Record<string, string> = {
       "global-admin": "GLOBAL",
       operations: "OPERATIONS",
@@ -64,12 +74,17 @@ function NewAdminPage() {
       "read-only": "MARKETING",
     };
     void (async () => {
+      setBusy(true);
       try {
         const { createAdminTeamMember } = await import("@/lib/admin-api");
         const created = await createAdminTeamMember({
           email: email.trim().toLowerCase(),
           name: name.trim(),
           role: roleMap[role] ?? "OPERATIONS",
+          department,
+          phone: phoneDigits || undefined,
+          require2fa: twoFactor,
+          makerChecker,
         });
         setSent(true);
         const creds = [
@@ -82,7 +97,14 @@ function NewAdminPage() {
           description: creds || undefined,
         });
       } catch (err) {
-        toast.error(err instanceof Error ? err.message : "Could not invite admin");
+        if (err instanceof AdminApiError && (err.status === 409 || err.code === "EMAIL_EXISTS")) {
+          setEmailError("An admin with this email already exists.");
+          toast.error("An admin with this email already exists");
+        } else {
+          toast.error(err instanceof AdminApiError ? err.message : "Could not invite admin");
+        }
+      } finally {
+        setBusy(false);
       }
     })();
   };
@@ -168,11 +190,18 @@ function NewAdminPage() {
                 <span className="mb-1.5 block text-[12px] font-bold">Work email</span>
                 <input
                   value={email}
-                  onChange={(e) => setEmail(e.target.value)}
+                  onChange={(e) => {
+                    setEmail(e.target.value);
+                    setEmailError("");
+                  }}
                   placeholder="name@kipit.com"
                   className={field}
                 />
-                {touched && !emailValid ? (
+                {emailError ? (
+                  <span className="mt-1 block text-[11.5px] font-semibold text-destructive">
+                    {emailError}
+                  </span>
+                ) : touched && !emailValid ? (
                   <span className="mt-1 block text-[11.5px] font-semibold text-destructive">
                     Enter a valid work email address.
                   </span>
@@ -185,8 +214,14 @@ function NewAdminPage() {
                   value={phone}
                   onChange={(e) => setPhone(e.target.value)}
                   placeholder="+234 800 000 0000"
+                  inputMode="tel"
                   className={field}
                 />
+                {touched && !phoneValid ? (
+                  <span className="mt-1 block text-[11.5px] font-semibold text-destructive">
+                    Use digits only (at least 10), or leave blank.
+                  </span>
+                ) : null}
               </label>
 
               <label className="block">
@@ -281,10 +316,11 @@ function NewAdminPage() {
           <div className="rounded-2xl border border-border/80 bg-card p-4">
             <button
               type="button"
+              disabled={busy}
               onClick={submit}
-              className="flex w-full items-center justify-center gap-2 rounded-lg bg-brand px-4 py-3 text-[13.5px] font-bold text-primary-foreground transition hover:opacity-95"
+              className="flex w-full items-center justify-center gap-2 rounded-lg bg-brand px-4 py-3 text-[13.5px] font-bold text-primary-foreground transition hover:opacity-95 disabled:opacity-50"
             >
-              <Mail className="size-4" /> Send invitation
+              <Mail className="size-4" /> {busy ? "Sending…" : "Send invitation"}
             </button>
             <p className="mt-2 text-center text-[11.5px] text-muted-foreground">
               Creating an admin user is written to the global audit log.

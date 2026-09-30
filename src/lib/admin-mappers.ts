@@ -45,7 +45,7 @@ import type {
   Tier,
   UserStatus,
 } from "./admin-users-data";
-import type { ChatSession, ChatTurn, ChatIntent } from "./admin-chat-data";
+import type { ChatSession, ChatTurn, ChatIntent, ChatOutcome } from "./admin-chat-data";
 import type { Withdrawal, WithdrawalRisk, WithdrawalStatus } from "./admin-withdrawals-data";
 
 export function formatAdminDate(iso: string | null | undefined): string {
@@ -75,7 +75,7 @@ export function mapWithdrawalStatus(status: string): WithdrawalStatus {
   const u = status.toUpperCase();
   if (u === "SUCCESSFUL" || u === "COMPLETED") return "successful";
   if (u === "DECLINED" || u === "REJECTED") return "declined";
-  if (u === "PROCESSING") return "pending";
+  if (u === "PROCESSING") return "processing";
   if (u === "PENDING") return "pending";
   return "pending";
 }
@@ -196,7 +196,12 @@ export function mapAdminUserPlacement(
 export function mapAdminUserSession(
   row: Awaited<ReturnType<typeof fetchAdminUserSessions>>[number],
 ): AdminSession {
-  const status = row.revokedAt ? "revoked" : row.current ? "active" : "expired";
+  const revoked = Boolean(row.revokedAt);
+  const activeFlag =
+    "active" in row && typeof (row as { active?: boolean }).active === "boolean"
+      ? Boolean((row as { active?: boolean }).active)
+      : !revoked;
+  const status = revoked ? "revoked" : activeFlag || row.current ? "active" : "expired";
   return {
     id: row.id,
     device: row.deviceName?.trim() || row.userAgent?.trim() || "—",
@@ -205,7 +210,7 @@ export function mapAdminUserSession(
     ip: row.ipAddress?.trim() || "—",
     lastSeen: formatAdminDateTime(row.lastActiveAt),
     status,
-    current: row.current,
+    current: Boolean(row.current),
   };
 }
 
@@ -214,9 +219,11 @@ export function mapWithdrawalRow(
   extra?: { balances?: { wallet: number; call: number; fixed: number; explore: number } },
 ): Withdrawal {
   const status = mapWithdrawalStatus(row.status);
-  const wallet = extra?.balances?.wallet ?? 0;
+  const walletRaw = extra?.balances?.wallet ?? 0;
+  const walletBalance =
+    status === "pending" || status === "processing" ? walletRaw + row.amount : walletRaw;
   const portfolio =
-    wallet +
+    walletBalance +
     (extra?.balances?.call ?? 0) +
     (extra?.balances?.fixed ?? 0) +
     (extra?.balances?.explore ?? 0);
@@ -240,7 +247,7 @@ export function mapWithdrawalRow(
     userEmail: displayEmail(row.user.email),
     userTier: mapKycTier(row.user.kycTier),
     userSince: row.user.createdAt ? formatAdminDate(row.user.createdAt) : "—",
-    walletBalance: wallet,
+    walletBalance,
     portfolioValue: portfolio,
     lifetimeWithdrawn: 0,
     priorWithdrawals: 0,
@@ -320,21 +327,32 @@ export function mapKycQueueItem(
   };
 }
 
+function rateBandTenorLabel(code: string, minDays: number, maxDays: number | null): string {
+  if (code.toUpperCase() === "CALL" || (minDays === 0 && maxDays === 0)) {
+    return "Call — instant access";
+  }
+  if (maxDays == null) return `${minDays}+ days`;
+  return `${minDays} – ${maxDays} days`;
+}
+
+function rateBandProductLabel(code: string): string {
+  if (code.toUpperCase() === "CALL") return "Kipit Call Account";
+  return "Kipit Fixed";
+}
+
 export function mapRateBand(
-  row: Awaited<ReturnType<typeof fetchAdminRates>>[number],
+  row: Awaited<ReturnType<typeof fetchAdminRates>>[number] & {
+    placements?: number;
+    principal?: number;
+  },
 ): RateBand {
   const rate = row.rateBps / 100;
   const maxDays = row.maxDays ?? row.minDays;
-  const band =
-    row.maxDays == null && row.minDays === 0
-      ? row.label || row.code
-      : row.maxDays == null
-        ? `${row.minDays}+ days`
-        : `${row.minDays} – ${row.maxDays} days`;
+  const band = rateBandTenorLabel(row.code, row.minDays, row.maxDays);
   return {
     id: row.id,
     band,
-    product: row.label || "Kipit Fixed",
+    product: rateBandProductLabel(row.code),
     minDays: row.minDays,
     maxDays: maxDays,
     currentRate: rate,
@@ -342,8 +360,8 @@ export function mapRateBand(
     effectiveDate: row.effectiveFrom.slice(0, 10),
     status: "active" as RateStatus,
     minimum: 0,
-    placements: 0,
-    principal: 0,
+    placements: row.placements ?? 0,
+    principal: row.principal ?? 0,
     updatedBy: "—",
     history: [],
   };
@@ -376,15 +394,36 @@ export function mapRateRequest(
   };
 }
 
-function mapLedgerProduct(_kind: string): LedgerProduct {
+function mapLedgerProduct(kind: string): LedgerProduct {
+  const k = kind.toUpperCase();
+  if (k.includes("CALL")) return "Call Account";
+  if (k.includes("EXPLORE") || k.includes("PRODUCT")) return "Explore";
+  if (
+    k.includes("PLACEMENT") ||
+    k.includes("MATURITY") ||
+    k.includes("INTEREST") ||
+    k.includes("FIXED")
+  ) {
+    return "Fixed plan";
+  }
   return "Wallet";
 }
 
-function mapLedgerChannel(kind: string): LedgerChannel {
-  const k = kind.toLowerCase();
-  if (k.includes("card")) return "Card";
-  if (k.includes("payout") || k.includes("withdraw")) return "Payout";
-  if (k.includes("bank") || k.includes("transfer")) return "Bank transfer";
+function mapLedgerChannel(kind: string, description?: string | null): LedgerChannel {
+  const hay = `${kind} ${description ?? ""}`.toLowerCase();
+  if (hay.includes("card") || hay.includes("paystack") || hay.includes("flutterwave")) {
+    return "Card";
+  }
+  if (hay.includes("wallet") && !hay.includes("withdraw")) return "Wallet";
+  if (
+    hay.includes("bank") ||
+    hay.includes("transfer") ||
+    hay.includes("nibss") ||
+    hay.includes("deposit")
+  ) {
+    return "Bank transfer";
+  }
+  if (hay.includes("payout") || hay.includes("withdraw")) return "Payout";
   return "System";
 }
 
@@ -398,7 +437,7 @@ export function mapLedgerTxn(
     type,
     status: "successful",
     product: mapLedgerProduct(row.kind),
-    channel: mapLedgerChannel(row.kind),
+    channel: mapLedgerChannel(row.kind, row.description),
     label: row.description?.trim() || row.kind,
     amount: row.amount,
     fee: 0,
@@ -446,8 +485,8 @@ export function mapAuditEntry(
     action: row.action,
     target,
     targetId: row.entityId ?? undefined,
-    ip: "—",
-    device: "—",
+    ip: row.ipAddress?.trim() || "—",
+    device: row.userAgent?.trim() ? row.userAgent.slice(0, 48) : "—",
     severity: "info" as AuditSeverity,
     before: jsonPreview(row.before),
     after: jsonPreview(row.after),
@@ -633,19 +672,23 @@ function mapAdminRole(role: string): AdminRoleId {
 export function mapAdminMember(
   row: Awaited<ReturnType<typeof fetchAdminTeam>>[number],
 ): AdminMember {
-  const status: AdminStatus = row.active ? "active" : "suspended";
+  const status: AdminStatus = !row.active
+    ? "suspended"
+    : row.invitePending
+      ? "invited"
+      : "active";
   return {
     id: row.id,
     name: row.name || "—",
     email: row.email,
-    phone: "—",
+    phone: row.phone?.trim() || "—",
     role: mapAdminRole(row.role),
     status,
-    department: "—",
+    department: row.department?.trim() || "—",
     createdAt: formatAdminDate(row.createdAt),
-    lastActive: "—",
-    twoFactor: false,
-    makerChecker: false,
+    lastActive: row.lastActiveAt ? formatAdminDateTime(row.lastActiveAt) : "—",
+    twoFactor: Boolean(row.require2fa),
+    makerChecker: Boolean(row.makerChecker),
     actions30d: 0,
     createdBy: "—",
   };
@@ -691,7 +734,7 @@ export function mapChatSessionListItem(
     turns,
     topIntent: mapChatIntent(sample),
     outcome,
-    flagged: outcome === "escalated",
+    flagged: Boolean(row.flagged) || outcome === "escalated",
     transcript: row.lastMessage
       ? [
           {
@@ -736,7 +779,7 @@ export function mapChatSessionDetail(
     turns: row.messages.length,
     topIntent: mapChatIntent(sample),
     outcome,
-    flagged: outcome === "escalated",
+    flagged: Boolean(row.flagged) || outcome === "escalated",
     transcript,
   };
 }

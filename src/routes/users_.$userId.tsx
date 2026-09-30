@@ -1,4 +1,12 @@
-import { createFileRoute, Link, Outlet, notFound, useRouterState } from "@tanstack/react-router";
+import {
+  createFileRoute,
+  Link,
+  Outlet,
+  notFound,
+  useNavigate,
+  useRouter,
+  useRouterState,
+} from "@tanstack/react-router";
 import { useState } from "react";
 import { ArrowLeft, Lock, LockOpen, Mail, Phone, TicketCheck } from "lucide-react";
 import { toast } from "sonner";
@@ -7,7 +15,11 @@ import { AdminShell } from "@/components/kipit/AdminShell";
 import { StatusPill, TierPill } from "@/components/kipit/AdminBits";
 import { findUser, hydrateAdminUserFromApi, portfolioValue } from "@/lib/admin-users-data";
 import { naira } from "@/lib/admin-data";
-import { setAdminUserFrozen } from "@/lib/admin-api";
+import { createAdminSupportTicket, setAdminUserFrozen } from "@/lib/admin-api";
+import {
+  CATEGORY_LABEL,
+  type TicketCategory,
+} from "@/lib/admin-support-data";
 import {
   Dialog,
   DialogContent,
@@ -17,14 +29,20 @@ import {
 } from "@/components/ui/dialog";
 
 export const Route = createFileRoute("/users_/$userId")({
+  ssr: false,
   loader: async ({ params }) => {
     let user = findUser(params.userId);
-    if (!user) user = (await hydrateAdminUserFromApi(params.userId)) ?? undefined;
-    if (!user) throw notFound();
+    if (!user && typeof window !== "undefined") {
+      user = (await hydrateAdminUserFromApi(params.userId)) ?? undefined;
+    }
+    if (!user) {
+      if (typeof window === "undefined") return { user: null };
+      throw notFound();
+    }
     return { user };
   },
   head: ({ loaderData }) => {
-    const name = loaderData?.user.name ?? "User";
+    const name = loaderData?.user?.name ?? "User";
     return {
       meta: [
         { title: `${name} — Kipit Admin Console` },
@@ -58,12 +76,34 @@ const TABS = [
   { label: "Access", to: "/users/$userId/frozen" as const },
 ];
 
+const TICKET_CATEGORIES = Object.keys(CATEGORY_LABEL) as TicketCategory[];
+
 function AdminUserProfile() {
-  const { user } = Route.useLoaderData();
+  const loaderData = Route.useLoaderData();
+  const user = loaderData.user;
   const { userId } = Route.useParams();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
+  const navigate = useNavigate();
+  const router = useRouter();
   const [freezeOpen, setFreezeOpen] = useState(false);
+  const [freezeBusy, setFreezeBusy] = useState(false);
   const [reason, setReason] = useState("");
+  const [ticketOpen, setTicketOpen] = useState(false);
+  const [ticketBusy, setTicketBusy] = useState(false);
+  const [ticketCategory, setTicketCategory] = useState<TicketCategory>("general");
+  const [ticketSubject, setTicketSubject] = useState("");
+  const [ticketBody, setTicketBody] = useState("");
+
+  if (!user) {
+    return (
+      <AdminShell title="User profile" subtitle="ADM-021">
+        <p className="text-[13px] text-muted-foreground">Loading user…</p>
+      </AdminShell>
+    );
+  }
+
+  const isFrozen = user.status === "frozen";
+  const freezeRequiresReason = !isFrozen;
 
   return (
     <AdminShell title={user.name} subtitle={`ADM-021 · ${user.id}`}>
@@ -124,11 +164,7 @@ function AdminUserProfile() {
               <div className="flex gap-2">
                 <button
                   type="button"
-                  onClick={() =>
-                    toast.success("Support ticket opened", {
-                      description: `A ticket was created for ${user.name}.`,
-                    })
-                  }
+                  onClick={() => setTicketOpen(true)}
                   className="inline-flex items-center gap-1.5 rounded-lg bg-white/10 px-3 py-2 text-[12.5px] font-bold text-primary-foreground transition hover:bg-white/20"
                 >
                   <TicketCheck className="size-4" />
@@ -139,7 +175,7 @@ function AdminUserProfile() {
                   onClick={() => setFreezeOpen(true)}
                   className="inline-flex items-center gap-1.5 rounded-lg bg-gold px-3 py-2 text-[12.5px] font-bold text-gold-foreground transition hover:opacity-90"
                 >
-                  {user.status === "frozen" ? (
+                  {isFrozen ? (
                     <>
                       <LockOpen className="size-4" />
                       Unfreeze
@@ -185,15 +221,122 @@ function AdminUserProfile() {
         <Outlet />
       </div>
 
-      {/* Freeze / unfreeze dialog (ADM-033) */}
-      <Dialog open={freezeOpen} onOpenChange={setFreezeOpen}>
+      {/* New support ticket */}
+      <Dialog
+        open={ticketOpen}
+        onOpenChange={(open) => {
+          setTicketOpen(open);
+          if (!open) {
+            setTicketCategory("general");
+            setTicketSubject("");
+            setTicketBody("");
+          }
+        }}
+      >
         <DialogContent className="sm:max-w-[26rem]">
           <DialogHeader>
-            <DialogTitle>
-              {user.status === "frozen" ? "Unfreeze account" : "Freeze account"}
-            </DialogTitle>
+            <DialogTitle>New support ticket</DialogTitle>
             <DialogDescription>
-              {user.status === "frozen"
+              Open a ticket on behalf of {user.name}. They can follow up in the app.
+            </DialogDescription>
+          </DialogHeader>
+          <label className="block">
+            <span className="mb-1 block text-[11px] font-bold uppercase tracking-[0.12em] text-muted-foreground">
+              Category
+            </span>
+            <select
+              value={ticketCategory}
+              onChange={(e) => setTicketCategory(e.target.value as TicketCategory)}
+              className="w-full rounded-lg border border-border bg-background px-3 py-2.5 text-[13.5px] outline-none focus:border-brand"
+            >
+              {TICKET_CATEGORIES.map((c) => (
+                <option key={c} value={c}>
+                  {CATEGORY_LABEL[c]}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="block">
+            <span className="mb-1 block text-[11px] font-bold uppercase tracking-[0.12em] text-muted-foreground">
+              Subject
+            </span>
+            <input
+              value={ticketSubject}
+              onChange={(e) => setTicketSubject(e.target.value)}
+              className="w-full rounded-lg border border-border bg-background px-3 py-2.5 text-[13.5px] outline-none focus:border-brand"
+            />
+          </label>
+          <textarea
+            value={ticketBody}
+            onChange={(e) => setTicketBody(e.target.value)}
+            rows={4}
+            placeholder="Message to support"
+            className="w-full rounded-xl border border-border bg-muted/40 p-3 text-[13px] outline-none focus:border-brand"
+          />
+          <div className="flex justify-end gap-2">
+            <button
+              type="button"
+              disabled={ticketBusy}
+              onClick={() => setTicketOpen(false)}
+              className="rounded-lg border border-border px-4 py-2 text-[13px] font-bold transition hover:bg-muted disabled:opacity-50"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              disabled={
+                ticketBusy ||
+                ticketSubject.trim().length < 3 ||
+                ticketBody.trim().length < 4
+              }
+              onClick={() => {
+                if (ticketBusy) return;
+                setTicketBusy(true);
+                void createAdminSupportTicket({
+                  userId: user.id,
+                  category: ticketCategory,
+                  subject: ticketSubject.trim(),
+                  body: ticketBody.trim(),
+                })
+                  .then((created) => {
+                    setTicketOpen(false);
+                    setTicketCategory("general");
+                    setTicketSubject("");
+                    setTicketBody("");
+                    toast.success("Support ticket created", {
+                      description: created.subject,
+                    });
+                    void navigate({
+                      to: "/support_/$ticketId",
+                      params: { ticketId: created.id },
+                    });
+                  })
+                  .catch((err) =>
+                    toast.error(err instanceof Error ? err.message : "Could not create ticket"),
+                  )
+                  .finally(() => setTicketBusy(false));
+              }}
+              className="rounded-lg bg-brand px-4 py-2 text-[13px] font-bold text-primary-foreground transition disabled:opacity-40"
+            >
+              {ticketBusy ? "Creating…" : "Create ticket"}
+            </button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Freeze / unfreeze dialog (ADM-033) */}
+      <Dialog
+        open={freezeOpen}
+        onOpenChange={(open) => {
+          setFreezeOpen(open);
+          if (!open) setReason("");
+        }}
+      >
+        <DialogContent className="sm:max-w-[26rem]">
+          <DialogHeader>
+            <DialogTitle>{isFrozen ? "Unfreeze account" : "Freeze account"}</DialogTitle>
+            <DialogDescription>
+              {isFrozen
                 ? "Restores funding, investing and withdrawals for this customer."
                 : "Blocks funding, investing and withdrawals until the freeze is lifted. A reason is mandatory and recorded in the audit log."}
             </DialogDescription>
@@ -203,24 +346,33 @@ function AdminUserProfile() {
             value={reason}
             onChange={(e) => setReason(e.target.value)}
             rows={4}
-            placeholder="Reason (required)"
+            placeholder={isFrozen ? "Optional note for the audit log" : "Reason (required)"}
             className="w-full rounded-xl border border-border bg-muted/40 p-3 text-[13px] outline-none focus:border-brand"
           />
 
           <div className="flex justify-end gap-2">
             <button
               type="button"
+              disabled={freezeBusy}
               onClick={() => setFreezeOpen(false)}
-              className="rounded-lg border border-border px-4 py-2 text-[13px] font-bold transition hover:bg-muted"
+              className="rounded-lg border border-border px-4 py-2 text-[13px] font-bold transition hover:bg-muted disabled:opacity-50"
             >
               Cancel
             </button>
             <button
               type="button"
-              disabled={reason.trim().length < 4}
+              disabled={
+                freezeBusy || (freezeRequiresReason && reason.trim().length < 4)
+              }
               onClick={() => {
-                const freeze = user.status !== "frozen";
-                void setAdminUserFrozen(user.id, freeze, reason.trim())
+                if (freezeBusy) return;
+                const freeze = !isFrozen;
+                setFreezeBusy(true);
+                void setAdminUserFrozen(
+                  user.id,
+                  freeze,
+                  reason.trim() || undefined,
+                )
                   .then(async () => {
                     await hydrateAdminUserFromApi(user.id);
                     setFreezeOpen(false);
@@ -228,15 +380,16 @@ function AdminUserProfile() {
                     toast.success(freeze ? "Account frozen" : "Account unfrozen", {
                       description: "Recorded in the audit log.",
                     });
-                    window.location.reload();
+                    await router.invalidate();
                   })
                   .catch((err) =>
                     toast.error(err instanceof Error ? err.message : "Could not update freeze"),
-                  );
+                  )
+                  .finally(() => setFreezeBusy(false));
               }}
               className="rounded-lg bg-destructive px-4 py-2 text-[13px] font-bold text-white transition disabled:opacity-40"
             >
-              {user.status === "frozen" ? "Unfreeze" : "Freeze account"}
+              {freezeBusy ? "Saving…" : isFrozen ? "Unfreeze" : "Freeze account"}
             </button>
           </div>
         </DialogContent>

@@ -78,7 +78,15 @@ function CreateProductPage() {
   const [docName, setDocName] = useState("");
   const [docUrl, setDocUrl] = useState("");
   const [docKind, setDocKind] = useState<ProductDoc["kind"]>("Term sheet");
+  const [docSize, setDocSize] = useState("—");
+  const [descTouched, setDescTouched] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [draftBusy, setDraftBusy] = useState(false);
+
+  const descriptionError =
+    descTouched && description.trim().length > 0 && description.trim().length < 10
+      ? "Description must be at least 10 characters"
+      : undefined;
 
   const detailsValid =
     name.trim().length > 2 &&
@@ -88,18 +96,85 @@ function CreateProductPage() {
     Number(digits(tenor)) > 0 &&
     Number(digits(minimum)) > 0;
 
+  const draftValid = name.trim().length > 2;
+
+  async function saveAsDraft() {
+    if (!draftValid || draftBusy) return;
+    setDraftBusy(true);
+    try {
+      const { createAdminProduct } = await import("@/lib/admin-api");
+      const { hydrateAdminProductsFromApi } = await import("@/lib/admin-products-data");
+      const created = await createAdminProduct({
+        name: name.trim(),
+        categoryName: category,
+        description: description.trim() || undefined,
+        blurb: (description.trim() || name.trim()).slice(0, 140),
+        ratePct: Number(rate) > 0 ? Number(rate) : 1,
+        tenorDays: Number(digits(tenor)) > 0 ? Number(digits(tenor)) : 30,
+        minimum: Number(digits(minimum)) > 0 ? Number(digits(minimum)) : 1000,
+        issuer: issuer.trim() || undefined,
+        availability: "COMING_SOON",
+        details: {
+          about: (about.trim() || description.trim()) || undefined,
+          how: linesToList(howText),
+          risks: linesToList(risksText),
+          faqs: faqsFromText(faqsText),
+          documents: docs.map((d) => ({
+            name: d.name,
+            meta: d.kind,
+            url: d.url || "",
+          })),
+        },
+      });
+      await hydrateAdminProductsFromApi();
+      toast.success(`${created.name} saved as draft`);
+      navigate({ to: "/products" });
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not save draft");
+    } finally {
+      setDraftBusy(false);
+    }
+  }
+
   const minimumLabel = useMemo(
     () => (digits(minimum) ? naira(Number(digits(minimum))) : "—"),
     [minimum],
   );
 
+  function formatFileSize(bytes: number) {
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  }
+
+  async function handleDocFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      const dataUrl = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(String(reader.result));
+        reader.onerror = () => reject(reader.error);
+        reader.readAsDataURL(file);
+      });
+      setDocUrl(dataUrl);
+      setDocSize(formatFileSize(file.size));
+      if (!docName.trim()) setDocName(file.name.replace(/\.[^.]+$/, "") || file.name);
+    } catch {
+      toast.error("Could not read file");
+    }
+    e.target.value = "";
+  }
+
   function saveDoc() {
     if (!docName.trim()) return;
+    const trimmed = docName.trim();
+    const hasExt = /\.[a-z0-9]+$/i.test(trimmed);
     const entry: ProductDoc = {
       id: replaceId ?? `new-${Date.now()}`,
-      name: docName.trim().endsWith(".pdf") ? docName.trim() : `${docName.trim()}.pdf`,
+      name: hasExt ? trimmed : `${trimmed}.pdf`,
       kind: docKind,
-      size: "—",
+      size: docSize,
       uploadedAt: "Just now",
       uploadedBy: "You",
       url: docUrl.trim() || undefined,
@@ -112,6 +187,7 @@ function CreateProductPage() {
     setReplaceId(null);
     setDocName("");
     setDocUrl("");
+    setDocSize("—");
   }
 
   function linesToList(value: string) {
@@ -225,10 +301,14 @@ function CreateProductPage() {
               <textarea
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
+                onBlur={() => setDescTouched(true)}
                 rows={3}
                 placeholder="How the product works, who it suits and how interest is paid."
                 className="w-full resize-none rounded-lg border border-border bg-background px-3 py-2.5 text-[13.5px] outline-none focus:border-brand"
               />
+              {descriptionError ? (
+                <p className="mt-1.5 text-[12px] font-semibold text-destructive">{descriptionError}</p>
+              ) : null}
             </Field>
             <Field label="About (app product page)" className="md:col-span-2">
               <textarea
@@ -294,11 +374,23 @@ function CreateProductPage() {
             </Field>
           </div>
 
-          <div className="mt-5 flex justify-end">
+          <div className="mt-5 flex flex-wrap justify-end gap-2">
+            <button
+              type="button"
+              disabled={!draftValid || draftBusy}
+              onClick={() => void saveAsDraft()}
+              className="inline-flex h-10 items-center rounded-lg border border-border px-4 text-[13px] font-bold transition hover:border-brand/40 disabled:opacity-40"
+            >
+              {draftBusy ? "Saving…" : "Save as draft"}
+            </button>
             <button
               type="button"
               disabled={!detailsValid}
-              onClick={() => setStep(2)}
+              onClick={() => {
+                setDescTouched(true);
+                if (description.trim().length < 10) return;
+                setStep(2);
+              }}
               className="inline-flex h-10 items-center rounded-lg bg-brand px-5 text-[13px] font-bold text-primary-foreground transition hover:opacity-90 disabled:opacity-40"
             >
               Continue to documents
@@ -380,7 +472,7 @@ function CreateProductPage() {
             </ul>
           )}
 
-          <div className="mt-5 flex justify-between">
+          <div className="mt-5 flex flex-wrap justify-between gap-2">
             <button
               type="button"
               onClick={() => setStep(1)}
@@ -388,13 +480,23 @@ function CreateProductPage() {
             >
               Back
             </button>
-            <button
-              type="button"
-              onClick={() => setStep(3)}
-              className="inline-flex h-10 items-center rounded-lg bg-brand px-5 text-[13px] font-bold text-primary-foreground transition hover:opacity-90"
-            >
-              Continue to review
-            </button>
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                disabled={!draftValid || draftBusy}
+                onClick={() => void saveAsDraft()}
+                className="inline-flex h-10 items-center rounded-lg border border-border px-4 text-[13px] font-bold transition hover:border-brand/40 disabled:opacity-40"
+              >
+                {draftBusy ? "Saving…" : "Save as draft"}
+              </button>
+              <button
+                type="button"
+                onClick={() => setStep(3)}
+                className="inline-flex h-10 items-center rounded-lg bg-brand px-5 text-[13px] font-bold text-primary-foreground transition hover:opacity-90"
+              >
+                Continue to review
+              </button>
+            </div>
           </div>
         </Panel>
       ) : null}
@@ -439,6 +541,14 @@ function CreateProductPage() {
               </button>
               <button
                 type="button"
+                disabled={!draftValid || draftBusy}
+                onClick={() => void saveAsDraft()}
+                className="inline-flex h-10 w-full items-center justify-center rounded-lg border border-border text-[13px] font-bold transition hover:border-brand/40 disabled:opacity-40"
+              >
+                {draftBusy ? "Saving…" : "Save as draft"}
+              </button>
+              <button
+                type="button"
                 onClick={() => setStep(2)}
                 className="inline-flex h-10 w-full items-center justify-center rounded-lg border border-border text-[13px] font-bold transition hover:border-brand/40"
               >
@@ -458,6 +568,14 @@ function CreateProductPage() {
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-3">
+            <Field label="File">
+              <input
+                type="file"
+                accept=".pdf,application/pdf,image/jpeg,image/png,image/webp,image/gif"
+                onChange={(e) => void handleDocFile(e)}
+                className="w-full rounded-lg border border-border bg-background px-3 py-2 text-[13px] file:mr-3 file:rounded-md file:border-0 file:bg-brand/10 file:px-2.5 file:py-1 file:text-[12px] file:font-bold file:text-brand"
+              />
+            </Field>
             <Field label="File name">
               <input
                 value={docName}

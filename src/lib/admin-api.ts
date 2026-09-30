@@ -308,6 +308,7 @@ export async function fetchAdminUserSessions(userId: string) {
       lastActiveAt: string;
       revokedAt: string | null;
       current: boolean;
+      active?: boolean;
     }[]
   >(`/v1/admin/users/${userId}/sessions`);
 }
@@ -405,6 +406,8 @@ export async function fetchAdminRates() {
       maxDays: number | null;
       rateBps: number;
       effectiveFrom: string;
+      placements?: number;
+      principal?: number;
     }[]
   >("/v1/admin/rates");
 }
@@ -481,6 +484,8 @@ export async function fetchAdminAudit() {
       entityLabel: string | null;
       before?: unknown;
       after?: unknown;
+      ipAddress?: string | null;
+      userAgent?: string | null;
       createdAt: string;
     }[]
   >("/v1/admin/audit");
@@ -509,6 +514,24 @@ export async function updateAdminTicket(
 ) {
   return adminApi<unknown>(`/v1/admin/support/tickets/${id}`, {
     method: "PATCH",
+    body: JSON.stringify(input),
+  });
+}
+
+export async function createAdminSupportTicket(input: {
+  userId: string;
+  category: string;
+  subject: string;
+  body: string;
+}) {
+  return adminApi<{
+    id: string;
+    status: string;
+    subject: string;
+    category: string;
+    createdAt: string;
+  }>("/v1/admin/support/tickets", {
+    method: "POST",
     body: JSON.stringify(input),
   });
 }
@@ -548,6 +571,10 @@ export async function createAdminTeamMember(input: {
   role: string;
   password?: string;
   pin?: string;
+  department?: string;
+  phone?: string;
+  require2fa?: boolean;
+  makerChecker?: boolean;
 }) {
   return adminApi<{
     id: string;
@@ -565,6 +592,92 @@ export async function updateAdminTeamMember(
   input: { name?: string; role?: string; active?: boolean },
 ) {
   return adminApi<{ id: string; active: boolean; role: string }>(`/v1/admin/team/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify(input),
+  });
+}
+
+export async function resetAdminTeamPassword(id: string) {
+  return adminApi<{ sent: boolean }>(`/v1/admin/team/${id}/reset-password`, { method: "POST" });
+}
+
+export async function resetAdminTeam2fa(id: string) {
+  return adminApi<{ reset: boolean }>(`/v1/admin/team/${id}/reset-2fa`, { method: "POST" });
+}
+
+export async function deleteAdminTeamMember(id: string) {
+  return adminApi<void>(`/v1/admin/team/${id}`, { method: "DELETE" });
+}
+
+export async function fetchAdminMe() {
+  return adminApi<{
+    id: string;
+    email: string;
+    name: string;
+    role: string;
+    phone: string | null;
+  }>("/v1/admin/me");
+}
+
+export async function patchAdminMe(input: { name?: string; phone?: string }) {
+  return adminApi<{ id: string; name: string; phone: string | null; email: string; role: string }>(
+    "/v1/admin/me",
+    { method: "PATCH", body: JSON.stringify(input) },
+  );
+}
+
+export async function changeAdminPassword(input: { currentPassword: string; newPassword: string }) {
+  return adminApi<{ ok: boolean }>("/v1/admin/me/password", {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+}
+
+export async function fetchAdminRolePermissions() {
+  return adminApi<Record<string, string[]>>("/v1/admin/role-permissions");
+}
+
+export async function putAdminRolePermissions(grants: Record<string, string[]>) {
+  return adminApi<Record<string, string[]>>("/v1/admin/role-permissions", {
+    method: "PUT",
+    body: JSON.stringify(grants),
+  });
+}
+
+export async function fetchMarketingAudienceCount() {
+  return adminApi<{
+    total: number;
+    segments?: Record<string, number>;
+  }>("/v1/admin/marketing/audience/count");
+}
+
+export async function fetchMarketingAudienceFilters() {
+  return adminApi<{ tier: string; status: string; kind: string; minBalance: string }>(
+    "/v1/admin/marketing/audience/filters",
+  );
+}
+
+export async function putMarketingAudienceFilters(filters: {
+  tier: string;
+  status: string;
+  kind: string;
+  minBalance: string;
+}) {
+  return adminApi<{ tier: string; status: string; kind: string; minBalance: string }>(
+    "/v1/admin/marketing/audience/filters",
+    { method: "PUT", body: JSON.stringify(filters) },
+  );
+}
+
+export async function sendMarketingDigestNow() {
+  return adminApi<{ jobId: string; recipientCount: number; sentAt: string }>(
+    "/v1/admin/marketing/digest/send-now",
+    { method: "POST" },
+  );
+}
+
+export async function patchAdminChatSession(id: string, input: { flagged: boolean }) {
+  return adminApi<{ id: string; flagged: boolean }>(`/v1/admin/chat/sessions/${id}`, {
     method: "PATCH",
     body: JSON.stringify(input),
   });
@@ -742,7 +855,20 @@ export async function fetchAdminFeed() {
 
 export async function fetchAdminTeam() {
   return adminApi<
-    { id: string; email: string; name: string; role: string; active: boolean; createdAt: string }[]
+    {
+      id: string;
+      email: string;
+      name: string;
+      role: string;
+      active: boolean;
+      createdAt: string;
+      department?: string | null;
+      phone?: string | null;
+      invitePending?: boolean;
+      require2fa?: boolean;
+      makerChecker?: boolean;
+      lastActiveAt?: string | null;
+    }[]
   >("/v1/admin/team");
 }
 
@@ -761,6 +887,7 @@ export async function fetchAdminChatSessions() {
       messageCount?: number;
       firstUserMessage?: string | null;
       lastMessage: string | null;
+      flagged?: boolean;
     }[]
   >("/v1/admin/chat/sessions");
 }
@@ -804,6 +931,7 @@ export async function fetchAdminChatSession(id: string) {
   return adminApi<{
     id: string;
     user: { id: string; name: string; email: string | null };
+    flagged?: boolean;
     messages: { id: string; role: string; content: string; createdAt: string }[];
   }>(`/v1/admin/chat/sessions/${id}`);
 }
@@ -923,7 +1051,11 @@ export async function fetchAdminNotifications() {
   >("/v1/admin/notifications");
 }
 
-export async function fetchAdminMaturities() {
+export async function fetchAdminMaturities(params?: { from?: string; to?: string }) {
+  const qs = new URLSearchParams();
+  if (params?.from) qs.set("from", params.from);
+  if (params?.to) qs.set("to", params.to);
+  const query = qs.toString();
   return adminApi<
     {
       id: string;
@@ -933,8 +1065,9 @@ export async function fetchAdminMaturities() {
       expected: number;
       date: string;
       window: "week" | "month";
+      maturityDate?: string;
     }[]
-  >("/v1/admin/dashboard/maturities");
+  >(`/v1/admin/dashboard/maturities${query ? `?${query}` : ""}`);
 }
 
 export async function fetchAdminRecentActivity() {
@@ -959,6 +1092,12 @@ export async function fetchAdminTodayFlows() {
     interestCredits: number;
     withdrawals: number;
   }>("/v1/admin/dashboard/today-flows");
+}
+
+export async function fetchAdminFlowTrend() {
+  return adminApi<{ day: string; deposits: number; withdrawals: number }[]>(
+    "/v1/admin/dashboard/flow-trend",
+  );
 }
 
 export async function fetchAdminPrincipalByTenor() {
@@ -1011,6 +1150,11 @@ export type AdminSystemSettings = {
   cutoffs: AdminFeeRow[];
   flags: AdminFeatureFlag[];
   maintenance: { enabled: boolean; message: string };
+  support: {
+    phone: string;
+    whatsapp: string;
+    email: string;
+  };
 };
 
 export async function fetchAdminSettings() {
@@ -1099,6 +1243,8 @@ export async function runAdminReport(body: {
     name: string;
     format: string;
     rowCount: number;
+    headers?: string[];
+    rows?: string[][];
     status: string;
     message: string;
   }>("/v1/admin/reports/run", {

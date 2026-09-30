@@ -72,6 +72,11 @@ function ReportsCentre() {
   const [run, setRun] = useState<ReportPack | null>(null);
   const [format, setFormat] = useState("CSV");
   const [busy, setBusy] = useState(false);
+  const [periodPreset, setPeriodPreset] = useState<string | null>(null);
+  const [draftFrom, setDraftFrom] = useState(from);
+  const [draftTo, setDraftTo] = useState(to);
+
+  const dateRangeInvalid = draftFrom > draftTo;
 
   async function reload() {
     const data = await hydrateAdminReportsFromApi();
@@ -151,7 +156,7 @@ function ReportsCentre() {
   }
 
   async function generateReport() {
-    if (!run) return;
+    if (!run || dateRangeInvalid) return;
     setBusy(true);
     try {
       const result = await runAdminReport({
@@ -160,24 +165,12 @@ function ReportsCentre() {
         from,
         to,
       });
-      const n = downloadCsv(
-        `kipit-report-${run.id}`,
-        ["Pack", "Category", "Format", "From", "To", "Row count", "Status", "Owner", "Last run", "Description"],
-        [
-          [
-            result.name || run.name,
-            run.category,
-            result.format || format,
-            from,
-            to,
-            result.rowCount,
-            result.status,
-            run.owner,
-            run.lastRun,
-            run.description,
-          ],
-        ],
-      );
+      const headers = result.headers?.length ? result.headers : ["Pack", "Row count"];
+      const rows =
+        result.rows?.length && result.headers?.length
+          ? result.rows
+          : [[result.name || run.name, String(result.rowCount)]];
+      const n = downloadCsv(`kipit-report-${run.id}`, headers, rows);
       toast.success(`Downloaded ${n} rows`, {
         description: result.message || `${result.name} · ${result.format}`,
       });
@@ -204,9 +197,59 @@ function ReportsCentre() {
       start.setMonth(start.getMonth() - 1, 1);
       end.setDate(0);
     }
-    setFrom(start.toISOString().slice(0, 10));
-    setTo(end.toISOString().slice(0, 10));
+    const f = start.toISOString().slice(0, 10);
+    const t = end.toISOString().slice(0, 10);
+    setDraftFrom(f);
+    setDraftTo(t);
+    setFrom(f);
+    setTo(t);
+    setPeriodPreset(p);
     toast.success(`Period set to ${p.toLowerCase()}`);
+  }
+
+  function applyDates() {
+    if (dateRangeInvalid) {
+      toast.error("From date must be on or before To date");
+      return;
+    }
+    setFrom(draftFrom);
+    setTo(draftTo);
+    setPeriodPreset(null);
+    toast.success("Reporting period applied");
+  }
+
+  function resetDates() {
+    const d = new Date();
+    d.setDate(d.getDate() - 30);
+    const f = d.toISOString().slice(0, 10);
+    const t = todayIso();
+    setDraftFrom(f);
+    setDraftTo(t);
+    setFrom(f);
+    setTo(t);
+    setPeriodPreset(null);
+  }
+
+  async function schedulePack(p: ReportPack) {
+    const entry = {
+      id: `sched-${p.id}-${Date.now()}`,
+      pack: p.name,
+      cadence: p.cadence,
+      recipients: "ops@kipit.ng",
+      next: new Date(Date.now() + 86400000).toISOString().slice(0, 10),
+      active: true,
+    };
+    const next = [...schedules, entry];
+    setBusy(true);
+    try {
+      const saved = await putAdminReportSchedules(next);
+      setSchedules(saved.map((s) => ({ ...s })));
+      toast.success("Schedule created", { description: `${p.name} · ${p.cadence}` });
+    } catch (err) {
+      toast.error(err instanceof AdminApiError ? err.message : "Could not create schedule");
+    } finally {
+      setBusy(false);
+    }
   }
 
   return (
@@ -224,8 +267,11 @@ function ReportsCentre() {
             <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">From</span>
             <input
               type="date"
-              value={from}
-              onChange={(e) => setFrom(e.target.value)}
+              value={draftFrom}
+              onChange={(e) => {
+                setDraftFrom(e.target.value);
+                setPeriodPreset(null);
+              }}
               className="mt-1 block rounded-lg border border-border bg-card px-3 py-2 text-[13.5px] font-semibold outline-none focus:border-brand"
             />
           </label>
@@ -233,22 +279,51 @@ function ReportsCentre() {
             <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">To</span>
             <input
               type="date"
-              value={to}
-              onChange={(e) => setTo(e.target.value)}
+              value={draftTo}
+              onChange={(e) => {
+                setDraftTo(e.target.value);
+                setPeriodPreset(null);
+              }}
               className="mt-1 block rounded-lg border border-border bg-card px-3 py-2 text-[13.5px] font-semibold outline-none focus:border-brand"
             />
           </label>
+          {dateRangeInvalid ? (
+            <p className="w-full text-[12.5px] font-semibold text-destructive">
+              From date must be on or before To date.
+            </p>
+          ) : null}
           <div className="flex flex-wrap gap-2">
             {["Today", "This week", "This month", "Last month"].map((p) => (
               <button
                 key={p}
                 type="button"
                 onClick={() => applyPeriodPreset(p)}
-                className="rounded-full border border-border bg-card px-3 py-1.5 text-[12.5px] font-bold text-muted-foreground transition hover:text-foreground"
+                className={`rounded-full border px-3 py-1.5 text-[12.5px] font-bold transition ${
+                  periodPreset === p
+                    ? "border-brand bg-brand text-primary-foreground"
+                    : "border-border bg-card text-muted-foreground hover:text-foreground"
+                }`}
               >
                 {p}
               </button>
             ))}
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={applyDates}
+              disabled={dateRangeInvalid}
+              className="rounded-lg bg-brand px-3 py-2 text-[12.5px] font-bold text-primary-foreground transition hover:opacity-90 disabled:opacity-50"
+            >
+              Apply dates
+            </button>
+            <button
+              type="button"
+              onClick={resetDates}
+              className="rounded-lg border border-border bg-card px-3 py-2 text-[12.5px] font-bold transition hover:bg-muted"
+            >
+              Reset dates
+            </button>
           </div>
           <Link
             to="/analytics"
@@ -286,6 +361,13 @@ function ReportsCentre() {
       </div>
 
       <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+        {packs.length === 0 ? (
+          <p className="col-span-full py-10 text-center text-[13px] text-muted-foreground">
+            {query.trim()
+              ? "No report packs match your search."
+              : "No report packs in this category."}
+          </p>
+        ) : null}
         {packs.map((p) => (
           <article
             key={p.id}
@@ -318,9 +400,8 @@ function ReportsCentre() {
               </button>
               <button
                 type="button"
-                onClick={() =>
-                  toast.success("Schedule created", { description: `${p.name} · ${p.cadence}` })
-                }
+                disabled={busy}
+                onClick={() => void schedulePack(p)}
                 className="rounded-lg border border-border px-3 py-2 text-[12.5px] font-bold transition hover:bg-muted"
               >
                 Schedule
@@ -439,7 +520,7 @@ function ReportsCentre() {
             </button>
             <button
               type="button"
-              disabled={busy}
+              disabled={busy || dateRangeInvalid}
               onClick={() => void generateReport()}
               className="rounded-lg bg-brand px-3.5 py-2 text-[13px] font-bold text-primary-foreground transition hover:opacity-90"
             >

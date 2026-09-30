@@ -23,6 +23,7 @@ import {
 } from "@/components/ui/dialog";
 import { naira } from "@/lib/admin-data";
 import {
+  AdminApiError,
   completeAdminWithdrawal,
   declineAdminWithdrawal,
   fetchAdminWithdrawal,
@@ -194,7 +195,21 @@ function WithdrawalReviewPage() {
                       setStatus("successful");
                       toast.success("Withdrawal marked successful · customer notified");
                     })
-                    .catch((err) => toast.error(err instanceof Error ? err.message : "Failed"))
+                    .catch((err) => {
+                      if (err instanceof AdminApiError) {
+                        const desc =
+                          err.code === "INVALID_STATE"
+                            ? "This withdrawal is not ready to settle (must be in processing)."
+                            : err.message;
+                        toast.error("Payout failed", {
+                          description: desc.includes("Paystack") || desc.includes("transfer")
+                            ? desc
+                            : `${desc}${err.code ? ` (${err.code})` : ""}`,
+                        });
+                        return;
+                      }
+                      toast.error(err instanceof Error ? err.message : "Failed");
+                    })
                     .finally(() => setBusy(false));
                 }}
                 className="inline-flex h-10 items-center gap-2 rounded-lg bg-brand px-4 text-[13px] font-bold text-primary-foreground transition hover:opacity-90 disabled:opacity-40"

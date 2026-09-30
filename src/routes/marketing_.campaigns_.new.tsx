@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { ArrowLeft, BellRing, Check, Mail, Send } from "lucide-react";
 import { toast } from "sonner";
@@ -13,7 +13,12 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { SEGMENTS, type CampaignChannel } from "@/lib/admin-marketing-data";
+import {
+  hydrateAudienceSegmentsFromApi,
+  SEGMENTS,
+  type CampaignChannel,
+  type Segment,
+} from "@/lib/admin-marketing-data";
 
 export const Route = createFileRoute("/marketing_/campaigns_/new")({
   head: () => ({
@@ -47,8 +52,15 @@ function CreateCampaignPage() {
   const [deepLink, setDeepLink] = useState(DEEP_LINKS[0] ?? "/invest");
   const [touched, setTouched] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [segments, setSegments] = useState<Segment[]>(() => SEGMENTS.map((s) => ({ ...s })));
 
-  const segment = SEGMENTS.find((s) => s.id === segmentId) ?? SEGMENTS[0]!;
+  useEffect(() => {
+    void hydrateAudienceSegmentsFromApi().then(() =>
+      setSegments(SEGMENTS.map((s) => ({ ...s }))),
+    );
+  }, []);
+
+  const segment = segments.find((s) => s.id === segmentId) ?? segments[0]!;
   const valid = name.trim() && title.trim() && content.trim();
 
   return (
@@ -111,7 +123,7 @@ function CreateCampaignPage() {
                 onChange={(e) => setSegmentId(e.target.value)}
                 className="w-full rounded-lg border border-border bg-background px-3 py-2.5 text-[13.5px] outline-none focus:border-brand/50"
               >
-                {SEGMENTS.map((s) => (
+                {segments.map((s) => (
                   <option key={s.id} value={s.id}>
                     {s.name} — {s.size.toLocaleString("en-NG")} customers
                   </option>

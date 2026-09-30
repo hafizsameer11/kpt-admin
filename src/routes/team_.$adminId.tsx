@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { createFileRoute, Link, useParams } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate, useParams } from "@tanstack/react-router";
 import {
   Activity,
   ArrowLeft,
@@ -58,6 +58,7 @@ export const Route = createFileRoute("/team_/$adminId")({
 });
 
 function AdminMemberPage() {
+  const navigate = useNavigate();
   const { adminId } = useParams({ from: "/team_/$adminId" });
   const [member, setMember] = useState<AdminMember | null | undefined>(undefined);
   const [activity, setActivity] = useState<AuditEntry[]>([]);
@@ -253,14 +254,34 @@ function AdminMemberPage() {
             <div className="space-y-2">
               <button
                 type="button"
-                onClick={() => toast.success(`Password reset link sent to ${member.email}`)}
+                onClick={() => {
+                  void import("@/lib/admin-api").then(({ resetAdminTeamPassword }) =>
+                    resetAdminTeamPassword(member.id)
+                      .then(() =>
+                        toast.success(`Temporary password emailed to ${member.email}`),
+                      )
+                      .catch((err) =>
+                        toast.error(err instanceof Error ? err.message : "Could not reset password"),
+                      ),
+                  );
+                }}
                 className="flex w-full items-center justify-center gap-2 rounded-lg border border-border px-4 py-2.5 text-[13px] font-bold transition hover:bg-muted"
               >
                 <Mail className="size-4" /> Send password reset
               </button>
               <button
                 type="button"
-                onClick={() => toast.success("Two-factor enrolment reset — required at next sign-in")}
+                onClick={() => {
+                  void import("@/lib/admin-api").then(({ resetAdminTeam2fa }) =>
+                    resetAdminTeam2fa(member.id)
+                      .then(() =>
+                        toast.success("Two-factor enrolment reset — required at next sign-in"),
+                      )
+                      .catch((err) =>
+                        toast.error(err instanceof Error ? err.message : "Could not reset 2FA"),
+                      ),
+                  );
+                }}
                 className="flex w-full items-center justify-center gap-2 rounded-lg border border-border px-4 py-2.5 text-[13px] font-bold transition hover:bg-muted"
               >
                 <KeyRound className="size-4" /> Reset two-factor
@@ -325,7 +346,9 @@ function AdminMemberPage() {
               onClick={() => {
                 void (async () => {
                   try {
-                    const { updateAdminTeamMember } = await import("@/lib/admin-api");
+                    const { updateAdminTeamMember, deleteAdminTeamMember } = await import(
+                      "@/lib/admin-api"
+                    );
                     if (confirm === "restore") {
                       await updateAdminTeamMember(member.id, { active: true });
                       setStatus("active");
@@ -335,8 +358,9 @@ function AdminMemberPage() {
                       setStatus("suspended");
                       toast.success(`${member.name} suspended`);
                     } else {
-                      await updateAdminTeamMember(member.id, { active: false });
+                      await deleteAdminTeamMember(member.id);
                       toast.success(`${member.name} removed from the console`);
+                      navigate({ to: "/team" });
                     }
                     setConfirm(null);
                   } catch (err) {

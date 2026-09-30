@@ -38,11 +38,27 @@ function Investments() {
   const [debitWallet, setDebitWallet] = useState(true);
   const [busy, setBusy] = useState(false);
 
+  const resetCreateForm = () => {
+    setKind("FIXED");
+    setAmount("");
+    setTenorDays("90");
+    setName("Fixed plan");
+    setDebitWallet(true);
+  };
+
   const reload = () => void loadAdminUserPlacements(userId).then(setRows);
 
   useEffect(() => {
     reload();
   }, [userId]);
+
+  useEffect(() => {
+    if (!createOpen) return;
+    setAmount("");
+    setTenorDays("90");
+    setName(kind === "FIXED" ? "Fixed plan" : "Call Account");
+    setDebitWallet(true);
+  }, [kind, createOpen]);
 
   const submit = async () => {
     if (busy) return;
@@ -57,7 +73,7 @@ function Investments() {
       });
       toast.success("Investment recorded");
       setCreateOpen(false);
-      setAmount("");
+      resetCreateForm();
       reload();
     } catch (err) {
       toast.error(err instanceof AdminApiError ? err.message : "Could not create investment");
@@ -155,7 +171,13 @@ function Investments() {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={createOpen} onOpenChange={setCreateOpen}>
+      <Dialog
+        open={createOpen}
+        onOpenChange={(open) => {
+          setCreateOpen(open);
+          if (!open) resetCreateForm();
+        }}
+      >
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Invest for customer</DialogTitle>
@@ -184,7 +206,10 @@ function Investments() {
               </span>
               <input
                 value={amount}
-                onChange={(e) => setAmount(e.target.value.replace(/[^\d.]/g, ""))}
+                onChange={(e) => {
+                  const digits = e.target.value.replace(/[^\d]/g, "");
+                  setAmount(digits ? Number(digits).toLocaleString("en-NG") : "");
+                }}
                 className="w-full rounded-lg border border-border bg-background px-3 py-2.5 text-[13.5px] outline-none focus:border-brand"
               />
             </label>
@@ -231,7 +256,7 @@ function Investments() {
             </button>
             <button
               type="button"
-              disabled={busy || !Number(amount)}
+              disabled={busy || !Number(amount.replace(/,/g, ""))}
               onClick={() => void submit()}
               className="inline-flex h-10 items-center rounded-lg bg-brand px-4 text-[13px] font-bold text-primary-foreground disabled:opacity-50"
             >

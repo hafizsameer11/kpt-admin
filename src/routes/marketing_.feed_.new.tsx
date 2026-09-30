@@ -1,10 +1,12 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { z } from "zod";
 import { ArrowLeft, ImagePlus } from "lucide-react";
 import { toast } from "sonner";
 
 import { AdminShell } from "@/components/kipit/AdminShell";
 import { Panel } from "@/components/kipit/AdminBits";
+import { findFeedCard } from "@/lib/admin-marketing-data";
 import {
   Dialog,
   DialogContent,
@@ -15,6 +17,7 @@ import {
 } from "@/components/ui/dialog";
 
 export const Route = createFileRoute("/marketing_/feed_/new")({
+  validateSearch: z.object({ cardId: z.string().optional().catch(undefined) }),
   head: () => ({
     meta: [
       { title: "Create home feed card — Kipit Admin Console" },
@@ -44,19 +47,31 @@ const DESTINATIONS = [
 
 function CreateFeedCardPage() {
   const navigate = useNavigate();
-  const [title, setTitle] = useState("");
-  const [description, setDescription] = useState("");
-  const [image, setImage] = useState("");
-  const [cta, setCta] = useState("Read now");
-  const [destination, setDestination] = useState(DESTINATIONS[0] ?? "/invest");
+  const { cardId } = Route.useSearch();
+  const existing = cardId ? findFeedCard(cardId) : undefined;
+  const [title, setTitle] = useState(existing?.title ?? "");
+  const [description, setDescription] = useState(existing?.description ?? "");
+  const [image, setImage] = useState(existing?.image ?? "");
+  const [cta, setCta] = useState(existing?.cta ?? "Read now");
+  const [destination, setDestination] = useState(existing?.destination ?? DESTINATIONS[0] ?? "/invest");
   const [touched, setTouched] = useState(false);
   const [imageOpen, setImageOpen] = useState(false);
   const [publishOpen, setPublishOpen] = useState(false);
 
+  useEffect(() => {
+    if (!existing) return;
+    setTitle(existing.title);
+    setDescription(existing.description);
+    setImage(existing.image);
+    setCta(existing.cta);
+    setDestination(existing.destination);
+  }, [existing]);
+
   const valid = title.trim() !== "" && description.trim() !== "" && image !== "";
+  const pageTitle = existing ? "Edit home feed card" : "Create home feed card";
 
   return (
-    <AdminShell title="Create home feed card" subtitle="ADM-104 · appears on the app home screen">
+    <AdminShell title={pageTitle} subtitle="ADM-104 · appears on the app home screen">
       <Link
         to="/marketing/feed"
         className="mb-4 inline-flex items-center gap-1.5 text-[12.5px] font-bold text-muted-foreground transition hover:text-brand"

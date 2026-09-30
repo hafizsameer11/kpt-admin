@@ -6,7 +6,12 @@ import { toast } from "sonner";
 import { AdminShell } from "@/components/kipit/AdminShell";
 import { Panel, Stat } from "@/components/kipit/AdminBits";
 import { SEGMENTS } from "@/lib/admin-marketing-data";
-import { hydrateAdminUsersFromApi } from "@/lib/admin-users-data";
+import {
+  AdminApiError,
+  fetchMarketingAudienceCount,
+  fetchMarketingAudienceFilters,
+  putMarketingAudienceFilters,
+} from "@/lib/admin-api";
 
 export const Route = createFileRoute("/marketing_/audience")({
   head: () => ({
@@ -37,20 +42,38 @@ function AudiencePage() {
   const [kind, setKind] = useState(SEGMENT_KINDS[0]!);
   const [minBalance, setMinBalance] = useState("");
   const [base, setBase] = useState(0);
+  const [segmentSizes, setSegmentSizes] = useState<Record<string, number>>({});
 
   useEffect(() => {
-    void hydrateAdminUsersFromApi().then((users) => setBase(users.length));
+    void fetchMarketingAudienceCount()
+      .then((r) => {
+        setBase(r.total);
+        setSegmentSizes(r.segments ?? { "All customers": r.total });
+      })
+      .catch(() => setBase(0));
+    void fetchMarketingAudienceFilters()
+      .then((f) => {
+        setTier(f.tier);
+        setStatus(f.status);
+        setKind(f.kind);
+        setMinBalance(f.minBalance);
+      })
+      .catch(() => {
+        /* defaults */
+      });
   }, []);
 
   const estimate = Math.max(
     0,
-    Math.round(
-      base *
-        (tier === "Any tier" ? 1 : tier === "Tier 2" ? 0.42 : tier === "Tier 1" ? 0.31 : 0.12) *
-        (status === "Any" ? 1 : status === "Active plan" ? 0.58 : 0.24) *
-        (kind === "All customers" ? 1 : 0.4) *
-        (minBalance.trim() ? 0.35 : 1),
-    ),
+    kind === "All customers" && tier === "Any tier" && status === "Any" && !minBalance.trim()
+      ? base
+      : Math.round(
+          base *
+            (tier === "Any tier" ? 1 : tier === "Tier 2" ? 0.42 : tier === "Tier 1" ? 0.31 : 0.12) *
+            (status === "Any" ? 1 : status === "Active plan" ? 0.58 : 0.24) *
+            (kind === "All customers" ? 1 : 0.4) *
+            (minBalance.trim() ? 0.35 : 1),
+        ),
   );
 
   return (
@@ -101,7 +124,13 @@ function AudiencePage() {
 
           <button
             type="button"
-            onClick={() => toast.success("Custom audience saved")}
+            onClick={() => {
+              void putMarketingAudienceFilters({ tier, status, kind, minBalance })
+                .then(() => toast.success("Custom audience saved"))
+                .catch((err) =>
+                  toast.error(err instanceof AdminApiError ? err.message : "Could not save audience"),
+                );
+            }}
             className="mt-4 w-full rounded-xl bg-brand px-4 py-3 text-[13.5px] font-bold text-primary-foreground"
           >
             Save audience
@@ -127,7 +156,7 @@ function AudiencePage() {
                     </span>
                   </span>
                   <span className="text-right text-[13px] font-extrabold tabular-nums">
-                    {s.size.toLocaleString("en-NG")}
+                    {(segmentSizes[s.name] ?? s.size).toLocaleString("en-NG")}
                   </span>
                 </li>
               ))}

@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import {
   AlertTriangle,
   ArrowDownRight,
@@ -122,8 +122,40 @@ export const Route = createFileRoute("/")({
 
 type Window = "week" | "month" | "custom";
 
+function startOfCalendarWeek(d: Date) {
+  const x = new Date(d);
+  const day = x.getDay();
+  const diff = day === 0 ? -6 : 1 - day;
+  x.setDate(x.getDate() + diff);
+  x.setHours(0, 0, 0, 0);
+  return x;
+}
+
+function endOfCalendarWeek(d: Date) {
+  const x = startOfCalendarWeek(d);
+  x.setDate(x.getDate() + 6);
+  x.setHours(23, 59, 59, 999);
+  return x;
+}
+
+function startOfCalendarMonth(d: Date) {
+  return new Date(d.getFullYear(), d.getMonth(), 1, 0, 0, 0, 0);
+}
+
+function endOfCalendarMonth(d: Date) {
+  return new Date(d.getFullYear(), d.getMonth() + 1, 0, 23, 59, 59, 999);
+}
+
+function parseMaturityDay(iso?: string) {
+  if (!iso) return null;
+  const d = new Date(iso);
+  return Number.isNaN(d.getTime()) ? null : d;
+}
+
 function AdminDashboard() {
   const [window, setWindow] = useState<Window>("week");
+  const [customFrom, setCustomFrom] = useState("");
+  const [customTo, setCustomTo] = useState("");
   const [, setTick] = useState(0);
   const [customerCount, setCustomerCount] = useState<number | null>(null);
   const [showAum, setShowAum] = useState(true);
@@ -138,9 +170,28 @@ function AdminDashboard() {
       if (d) setCustomerCount(d.users);
     });
   }, []);
-  const rows = MATURITIES.filter((m) =>
-    window === "week" ? m.window === "week" : window === "month" ? true : true,
-  );
+  const now = new Date();
+  const rows = MATURITIES.filter((m) => {
+    const maturity = parseMaturityDay(m.maturityDate);
+    if (!maturity) {
+      if (window === "week") return m.window === "week";
+      if (window === "month") return true;
+      return false;
+    }
+    if (window === "week") {
+      return maturity >= startOfCalendarWeek(now) && maturity <= endOfCalendarWeek(now);
+    }
+    if (window === "month") {
+      return maturity >= startOfCalendarMonth(now) && maturity <= endOfCalendarMonth(now);
+    }
+    if (!customFrom || !customTo) return false;
+    const from = new Date(customFrom);
+    from.setHours(0, 0, 0, 0);
+    const to = new Date(customTo);
+    to.setHours(23, 59, 59, 999);
+    if (Number.isNaN(from.getTime()) || Number.isNaN(to.getTime())) return false;
+    return maturity >= from && maturity <= to;
+  });
   const maturingTotal = rows.reduce((sum, r) => sum + r.principal, 0);
 
   return (
@@ -457,7 +508,11 @@ function AdminDashboard() {
               const Icon =
                 a.severity === "critical" ? AlertTriangle : a.severity === "warning" ? Clock : Info;
               return (
-                <div key={a.id} className={`rounded-xl border p-4 ${tone}`}>
+                <Link
+                  key={a.id}
+                  to={a.to}
+                  className={`rounded-xl border p-4 transition hover:opacity-90 ${tone}`}
+                >
                   <div className="flex items-start justify-between gap-2">
                     <p className="text-[12px] font-bold leading-tight">{a.label}</p>
                     <Icon className="size-4 shrink-0 text-muted-foreground" />
@@ -468,7 +523,7 @@ function AdminDashboard() {
                   <p className="mt-1.5 text-[11px] leading-snug text-muted-foreground">
                     {a.helper}
                   </p>
-                </div>
+                </Link>
               );
             })}
           </div>
@@ -605,6 +660,29 @@ function AdminDashboard() {
                 ))}
               </div>
             </div>
+
+            {window === "custom" ? (
+              <div className="mt-3 flex flex-wrap items-end gap-3">
+                <label className="text-[12px] font-semibold text-muted-foreground">
+                  From
+                  <input
+                    type="date"
+                    value={customFrom}
+                    onChange={(e) => setCustomFrom(e.target.value)}
+                    className="mt-1 block rounded-lg border border-border bg-card px-3 py-1.5 text-[13px] font-semibold text-foreground"
+                  />
+                </label>
+                <label className="text-[12px] font-semibold text-muted-foreground">
+                  To
+                  <input
+                    type="date"
+                    value={customTo}
+                    onChange={(e) => setCustomTo(e.target.value)}
+                    className="mt-1 block rounded-lg border border-border bg-card px-3 py-1.5 text-[13px] font-semibold text-foreground"
+                  />
+                </label>
+              </div>
+            ) : null}
 
             <div className="mt-3 flex items-center justify-between rounded-lg bg-muted/50 px-3 py-2">
               <span className="text-[12px] text-muted-foreground">

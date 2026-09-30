@@ -161,6 +161,18 @@ function AuditLogPage() {
             <button
               type="button"
               onClick={() => {
+                setArea("all");
+                setSeverity("all");
+                setQuery("");
+              }}
+              className="flex h-9 items-center gap-1.5 rounded-lg border border-border px-3 text-[12.5px] font-bold transition hover:bg-muted"
+            >
+              Reset filters
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
                 const n = downloadCsv(
                   "kipit-audit-log",
                   ["Date", "Time", "Actor", "Role", "Area", "Action", "Target", "IP", "Device", "Severity", "Before", "After"],
@@ -266,8 +278,15 @@ function AuditLogPage() {
           <button
             type="button"
             onClick={() => {
-              toast.success("Event copied to clipboard");
-              setOpen(null);
+              if (!open) return;
+              const payload = JSON.stringify(open, null, 2);
+              void navigator.clipboard.writeText(payload).then(
+                () => {
+                  toast.success("Event copied to clipboard");
+                  setOpen(null);
+                },
+                () => toast.error("Could not copy to clipboard"),
+              );
             }}
             className="rounded-lg bg-brand px-4 py-2.5 text-[13px] font-bold text-primary-foreground transition hover:opacity-95"
           >

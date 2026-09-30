@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
-import { AlertTriangle, Clock, Coins, Flag, Gauge, Wrench } from "lucide-react";
+import { AlertTriangle, Clock, Coins, Flag, Gauge, MessageCircle, Wrench } from "lucide-react";
 import { toast } from "sonner";
 
 import { AdminShell } from "@/components/kipit/AdminShell";
@@ -42,8 +42,35 @@ export const Route = createFileRoute("/settings")({
   component: SystemSettingsPage,
 });
 
-const TABS = ["Fees", "Limits", "Cut-off times", "Maintenance", "Feature flags"] as const;
+const TABS = ["Fees", "Limits", "Cut-off times", "Support", "Maintenance", "Feature flags"] as const;
 type Tab = (typeof TABS)[number];
+
+function validateNumericRows(rows: FeeSetting[], label: string) {
+  for (const row of rows) {
+    const n = Number(String(row.value).replace(/,/g, ""));
+    if (!Number.isFinite(n) || n < 0) {
+      toast.error(`${label}: ${row.label} must be a number ≥ 0`);
+      return false;
+    }
+  }
+  return true;
+}
+
+function validateCutoffRows(rows: FeeSetting[]) {
+  for (const row of rows) {
+    const v = String(row.value).trim();
+    if (!/^\d{1,2}:\d{2}$/.test(v)) {
+      toast.error(`Cut-offs: ${row.label} must be a time (HH:MM)`);
+      return false;
+    }
+    const [h, m] = v.split(":").map(Number);
+    if (h! > 23 || m! > 59) {
+      toast.error(`Cut-offs: ${row.label} must be a valid time`);
+      return false;
+    }
+  }
+  return true;
+}
 
 function SystemSettingsPage() {
   const [tab, setTab] = useState<Tab>("Fees");
@@ -56,7 +83,13 @@ function SystemSettingsPage() {
     message: "",
     window: "",
   });
+  const [support, setSupport] = useState({
+    phone: "+2347000547480",
+    whatsapp: "",
+    email: "support@kipit.ng",
+  });
   const [confirmMaintenance, setConfirmMaintenance] = useState(false);
+  const [confirmMaintenanceOff, setConfirmMaintenanceOff] = useState(false);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -71,6 +104,13 @@ function SystemSettingsPage() {
         message: data.maintenance.message,
         window: m.window,
       }));
+      if (data.support) {
+        setSupport({
+          phone: data.support.phone || "+2347000547480",
+          whatsapp: data.support.whatsapp || "",
+          email: data.support.email || "support@kipit.ng",
+        });
+      }
     });
   }, []);
 
@@ -81,6 +121,7 @@ function SystemSettingsPage() {
       cutoffs: FeeSetting[];
       flags: FeatureFlag[];
       maintenance: { enabled: boolean; message: string };
+      support: { phone: string; whatsapp: string; email: string };
     }>,
     successMessage: string,
   ) {
@@ -96,6 +137,13 @@ function SystemSettingsPage() {
         message: next.maintenance.message,
         window: m.window,
       }));
+      if (next.support) {
+        setSupport({
+          phone: next.support.phone || "",
+          whatsapp: next.support.whatsapp || "",
+          email: next.support.email || "",
+        });
+      }
       toast.success(successMessage);
     } catch (err) {
       toast.error(err instanceof AdminApiError ? err.message : "Could not save settings");
@@ -154,7 +202,10 @@ function SystemSettingsPage() {
             rows={fees}
             onChange={setFees}
             saving={saving}
-            onSave={() => void save({ fees }, "Fees saved")}
+            onSave={() => {
+              if (!validateNumericRows(fees, "Fees")) return;
+              void save({ fees }, "Fees saved");
+            }}
           />
         ) : null}
 
@@ -166,7 +217,10 @@ function SystemSettingsPage() {
             rows={limits}
             onChange={setLimits}
             saving={saving}
-            onSave={() => void save({ limits }, "Limits saved")}
+            onSave={() => {
+              if (!validateNumericRows(limits, "Limits")) return;
+              void save({ limits }, "Limits saved");
+            }}
           />
         ) : null}
 
@@ -178,8 +232,90 @@ function SystemSettingsPage() {
             rows={cutoffs}
             onChange={setCutoffs}
             saving={saving}
-            onSave={() => void save({ cutoffs }, "Cut-off times saved")}
+            onSave={() => {
+              if (!validateCutoffRows(cutoffs)) return;
+              void save({ cutoffs }, "Cut-off times saved");
+            }}
           />
+        ) : null}
+
+        {tab === "Support" ? (
+          <Panel title="Customer support contacts" eyebrow="Shown in the Kipit mobile app" icon={MessageCircle}>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <label className="block">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+                  Call / phone
+                </span>
+                <input
+                  value={support.phone}
+                  onChange={(e) => setSupport((s) => ({ ...s, phone: e.target.value }))}
+                  placeholder="+2347000547480"
+                  className="mt-1 w-full rounded-lg border border-border bg-card px-3 py-2 text-[13.5px] font-semibold outline-none transition focus:border-brand"
+                />
+              </label>
+              <label className="block">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+                  WhatsApp number
+                </span>
+                <input
+                  value={support.whatsapp}
+                  onChange={(e) => setSupport((s) => ({ ...s, whatsapp: e.target.value }))}
+                  placeholder="2348012345678"
+                  className="mt-1 w-full rounded-lg border border-border bg-card px-3 py-2 text-[13.5px] font-semibold outline-none transition focus:border-brand"
+                />
+                <p className="mt-1.5 text-[11.5px] leading-4 text-muted-foreground">
+                  Digits with country code (e.g. 234…). The app builds{" "}
+                  <span className="font-semibold text-foreground">
+                    wa.me/{support.whatsapp.replace(/\D/g, "") || "…"}
+                  </span>{" "}
+                  automatically.
+                </p>
+              </label>
+              <label className="block sm:col-span-2">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+                  Support email
+                </span>
+                <input
+                  value={support.email}
+                  onChange={(e) => setSupport((s) => ({ ...s, email: e.target.value }))}
+                  placeholder="support@kipit.ng"
+                  className="mt-1 w-full rounded-lg border border-border bg-card px-3 py-2 text-[13.5px] font-semibold outline-none transition focus:border-brand"
+                />
+              </label>
+            </div>
+            {support.whatsapp.replace(/\D/g, "").length >= 10 ? (
+              <a
+                href={`https://wa.me/${support.whatsapp.replace(/\D/g, "")}?text=${encodeURIComponent("Hi Kipit, I'd like some help with my account.")}`}
+                target="_blank"
+                rel="noreferrer"
+                className="mt-4 inline-flex items-center gap-2 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-[12.5px] font-bold text-emerald-700 hover:bg-emerald-500/15"
+              >
+                <MessageCircle className="size-4" />
+                Preview WhatsApp link
+              </a>
+            ) : null}
+            <div className="mt-4 flex justify-end">
+              <button
+                type="button"
+                disabled={saving}
+                onClick={() =>
+                  void save(
+                    {
+                      support: {
+                        phone: support.phone.trim(),
+                        whatsapp: support.whatsapp.replace(/\D/g, ""),
+                        email: support.email.trim(),
+                      },
+                    },
+                    "Support contacts saved",
+                  )
+                }
+                className="rounded-lg bg-brand px-4 py-2 text-[13px] font-bold text-primary-foreground transition hover:opacity-90 disabled:opacity-50"
+              >
+                {saving ? "Saving…" : "Save support contacts"}
+              </button>
+            </div>
+          </Panel>
         ) : null}
 
         {tab === "Maintenance" ? (
@@ -213,12 +349,7 @@ function SystemSettingsPage() {
                 disabled={saving}
                 onClick={() => {
                   if (!maintenance.enabled) setConfirmMaintenance(true);
-                  else {
-                    void save(
-                      { maintenance: { enabled: false, message: maintenance.message } },
-                      "Maintenance mode turned off",
-                    );
-                  }
+                  else setConfirmMaintenanceOff(true);
                 }}
                 className={`rounded-lg px-4 py-2 text-[13px] font-bold transition ${
                   maintenance.enabled
@@ -315,6 +446,41 @@ function SystemSettingsPage() {
           </Panel>
         ) : null}
       </div>
+
+      <Dialog open={confirmMaintenanceOff} onOpenChange={setConfirmMaintenanceOff}>
+        <DialogContent className="sm:max-w-[26rem]">
+          <DialogHeader>
+            <DialogTitle>Turn off maintenance mode?</DialogTitle>
+            <DialogDescription>
+              Customers will regain access to funding, investing and withdrawals. This is recorded
+              in the audit log.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="mt-2 flex justify-end gap-2">
+            <button
+              type="button"
+              onClick={() => setConfirmMaintenanceOff(false)}
+              className="rounded-lg border border-border px-3.5 py-2 text-[13px] font-bold transition hover:bg-muted"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              disabled={saving}
+              onClick={() => {
+                setConfirmMaintenanceOff(false);
+                void save(
+                  { maintenance: { enabled: false, message: maintenance.message } },
+                  "Maintenance mode turned off",
+                );
+              }}
+              className="rounded-lg bg-brand px-3.5 py-2 text-[13px] font-bold text-primary-foreground transition hover:opacity-90"
+            >
+              Turn off
+            </button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={confirmMaintenance} onOpenChange={setConfirmMaintenance}>
         <DialogContent className="sm:max-w-[26rem]">

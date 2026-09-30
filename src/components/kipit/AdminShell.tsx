@@ -23,6 +23,7 @@ import {
   UserCircle,
   LockKeyhole,
   LogOut,
+  X,
   type LucideIcon,
 } from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
@@ -93,6 +94,18 @@ const GROUPS: Group[] = [
 
 ];
 
+const NAV_EXACT_CHILDREN: Record<string, string[]> = {
+  "/users": ["/users/dropoffs", "/users/new"],
+  "/team": ["/team/roles", "/team/new"],
+};
+
+function navItemActive(pathname: string, to: string) {
+  if (to === "/") return pathname === "/";
+  const excluded = NAV_EXACT_CHILDREN[to];
+  if (excluded?.some((p) => pathname === p || pathname.startsWith(`${p}/`))) return false;
+  return pathname === to || pathname.startsWith(`${to}/`);
+}
+
 /**
  * Administration console shell — a separate operational surface from the
  * consumer app: persistent brand sidebar, operator top bar, dense content.
@@ -101,14 +114,17 @@ export function AdminShell({
   children,
   title,
   subtitle,
+  hideHeaderSearch,
 }: {
   children: ReactNode;
   title: string;
   subtitle?: string;
+  hideHeaderSearch?: boolean;
 }) {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const navigate = useNavigate();
   const [session, setSession] = useState<AdminSession | null>(null);
+  const [headerQuery, setHeaderQuery] = useState("");
 
   /** ADM-001/003 — no session means back to sign in; a locked session goes to the lock screen. */
   useEffect(() => {
@@ -167,10 +183,7 @@ export function AdminShell({
               </p>
               <ul className="space-y-0.5">
                 {group.items.map((item) => {
-                  const active =
-                    !item.soon &&
-                    (pathname === item.to ||
-                      (item.to !== "/" && pathname.startsWith(`${item.to}/`)));
+                  const active = !item.soon && navItemActive(pathname, item.to);
 
                   const Icon = item.icon;
                   return (
@@ -254,21 +267,41 @@ export function AdminShell({
               ) : null}
             </div>
 
-            <form
-              onSubmit={(e) => {
-                e.preventDefault();
-                const q = new FormData(e.currentTarget).get("q");
-                navigate({ to: "/search", search: { q: String(q ?? "") } });
-              }}
-              className="hidden items-center gap-2 rounded-lg border border-border bg-muted/50 px-3 py-2 md:flex"
-            >
-              <Search className="size-4 text-muted-foreground" />
-              <input
-                name="q"
-                placeholder="Search users, references…"
-                className="w-56 bg-transparent text-[13px] outline-none placeholder:text-muted-foreground"
-              />
-            </form>
+            {!hideHeaderSearch ? (
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  navigate({ to: "/search", search: { q: headerQuery.trim() } });
+                }}
+                className="hidden items-center gap-2 md:flex"
+              >
+                <div className="flex items-center gap-2 rounded-lg border border-border bg-muted/50 px-3 py-2">
+                  <Search className="size-4 text-muted-foreground" />
+                  <input
+                    value={headerQuery}
+                    onChange={(e) => setHeaderQuery(e.target.value)}
+                    placeholder="Search users, references…"
+                    className="w-56 bg-transparent text-[13px] outline-none placeholder:text-muted-foreground"
+                  />
+                  {headerQuery ? (
+                    <button
+                      type="button"
+                      aria-label="Clear search"
+                      onClick={() => setHeaderQuery("")}
+                      className="text-muted-foreground transition hover:text-foreground"
+                    >
+                      <X className="size-4" />
+                    </button>
+                  ) : null}
+                </div>
+                <button
+                  type="submit"
+                  className="rounded-lg border border-border bg-card px-3 py-2 text-[12px] font-bold text-foreground transition hover:bg-muted"
+                >
+                  Search
+                </button>
+              </form>
+            ) : null}
 
             <Link
               to="/notifications"
