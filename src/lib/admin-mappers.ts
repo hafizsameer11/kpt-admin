@@ -375,16 +375,37 @@ function mapRateRequestStatus(status: string): RateRequestStatus {
 }
 
 export function mapRateRequest(
-  row: Awaited<ReturnType<typeof fetchAdminRateRequests>>[number],
+  row: Awaited<ReturnType<typeof fetchAdminRateRequests>>[number] & {
+    currentBps?: number;
+    proposedBps?: number;
+  },
 ): RateRequest {
+  const currentRate =
+    typeof row.currentRate === "number"
+      ? row.currentRate
+      : typeof row.currentBps === "number"
+        ? row.currentBps / 100
+        : 0;
+  const proposedRate =
+    typeof row.proposedRate === "number"
+      ? row.proposedRate
+      : typeof row.proposedBps === "number"
+        ? row.proposedBps / 100
+        : 0;
+  const effectiveRaw =
+    typeof row.effectiveFrom === "string"
+      ? row.effectiveFrom
+      : row.effectiveFrom != null
+        ? String(row.effectiveFrom)
+        : "";
   return {
     id: row.id,
     bandId: row.bandId,
     band: row.band,
     product: "Kipit Fixed",
-    currentRate: row.currentRate,
-    proposedRate: row.proposedRate,
-    effectiveDate: row.effectiveFrom.slice(0, 10),
+    currentRate,
+    proposedRate,
+    effectiveDate: effectiveRaw.slice(0, 10),
     submittedBy: row.submittedBy,
     submittedAt: formatAdminDateTime(row.createdAt),
     reason: row.reason?.trim() || "—",
@@ -660,13 +681,41 @@ export function mapFeedCard(row: Awaited<ReturnType<typeof fetchAdminFeed>>[numb
 }
 
 function mapAdminRole(role: string): AdminRoleId {
-  const r = role.toLowerCase();
-  if (r.includes("global") || r.includes("super")) return "global-admin";
-  if (r.includes("compliance")) return "compliance";
-  if (r.includes("finance")) return "finance";
-  if (r.includes("support")) return "support";
-  if (r.includes("read")) return "read-only";
+  const r = role.toUpperCase();
+  if (r === "SUPER" || r === "GLOBAL") return "global-admin";
+  if (r === "COMPLIANCE") return "compliance";
+  if (r === "FINANCE") return "finance";
+  if (r === "SUPPORT") return "support";
+  if (r === "READ_ONLY") return "read-only";
+  if (r === "MARKETING") return "support";
+  if (r === "OPERATIONS") return "operations";
+  // Fallbacks for unexpected casing / legacy labels
+  const lower = role.toLowerCase();
+  if (lower.includes("global") || lower.includes("super")) return "global-admin";
+  if (lower.includes("compliance")) return "compliance";
+  if (lower.includes("finance")) return "finance";
+  if (lower.includes("support") || lower.includes("marketing")) return "support";
+  if (lower.includes("read")) return "read-only";
   return "operations";
+}
+
+/** UI role picker → API AdminRole enum (1:1 where possible). */
+export function uiRoleToApiRole(role: AdminRoleId): string {
+  switch (role) {
+    case "global-admin":
+      return "GLOBAL";
+    case "compliance":
+      return "COMPLIANCE";
+    case "finance":
+      return "FINANCE";
+    case "support":
+      return "SUPPORT";
+    case "read-only":
+      return "READ_ONLY";
+    case "operations":
+    default:
+      return "OPERATIONS";
+  }
 }
 
 export function mapAdminMember(

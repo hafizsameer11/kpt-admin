@@ -88,7 +88,9 @@ function RateDecisionPage() {
   }
 
   const band = findBand(request.bandId);
-  const delta = (request.proposedRate - request.currentRate) * 100;
+  const current = Number(request.currentRate) || 0;
+  const proposed = Number(request.proposedRate) || 0;
+  const delta = (proposed - current) * 100;
   const decided = request.status !== "awaiting";
   const decidedRequestId = request.id;
   const requestBand = request.band;
@@ -156,7 +158,7 @@ function RateDecisionPage() {
               <div className="rounded-xl border border-border/70 bg-muted/40 p-4">
                 <p className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">Previous</p>
                 <p className="mt-1 text-[26px] font-extrabold tabular-nums">
-                  {request.currentRate.toFixed(2)}%
+                  {current.toFixed(2)}%
                 </p>
                 <p className="text-[12px] text-muted-foreground">
                   Effective {band ? fmtDate(band.effectiveDate) : "—"}
@@ -177,7 +179,7 @@ function RateDecisionPage() {
               <div className="rounded-xl border border-brand/25 bg-brand/5 p-4">
                 <p className="text-[11px] font-bold uppercase tracking-wide text-brand">Proposed</p>
                 <p className="mt-1 text-[26px] font-extrabold tabular-nums text-brand">
-                  {request.proposedRate.toFixed(2)}%
+                  {proposed.toFixed(2)}%
                 </p>
                 <p className="text-[12px] text-brand/70">Effective {fmtDate(request.effectiveDate)}</p>
               </div>
@@ -263,7 +265,7 @@ function RateDecisionPage() {
           <DialogHeader>
             <DialogTitle>Approve rate change</DialogTitle>
             <DialogDescription>
-              {request.band}: {request.currentRate.toFixed(2)}% → {request.proposedRate.toFixed(2)}%, effective{" "}
+              {request.band}: {current.toFixed(2)}% → {proposed.toFixed(2)}%, effective{" "}
               {fmtDate(request.effectiveDate)}. Applies to new placements only.
             </DialogDescription>
           </DialogHeader>

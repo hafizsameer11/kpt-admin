@@ -64,23 +64,15 @@ function NewAdminPage() {
     setTouched(true);
     setEmailError("");
     if (!valid) return;
-    // UI roles → AdminRole enum (no SUPPORT; map closest existing roles, keep UI labels)
-    const roleMap: Record<string, string> = {
-      "global-admin": "GLOBAL",
-      operations: "OPERATIONS",
-      compliance: "COMPLIANCE",
-      finance: "OPERATIONS",
-      support: "OPERATIONS",
-      "read-only": "MARKETING",
-    };
     void (async () => {
       setBusy(true);
       try {
         const { createAdminTeamMember } = await import("@/lib/admin-api");
+        const { uiRoleToApiRole } = await import("@/lib/admin-mappers");
         const created = await createAdminTeamMember({
           email: email.trim().toLowerCase(),
           name: name.trim(),
-          role: roleMap[role] ?? "OPERATIONS",
+          role: uiRoleToApiRole(role),
           department,
           phone: phoneDigits || undefined,
           require2fa: twoFactor,
