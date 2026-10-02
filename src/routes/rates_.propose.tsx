@@ -126,6 +126,7 @@ function ProposeRatePage() {
                   <input
                     value={rate}
                     onChange={(e) => setRate(e.target.value.replace(/[^0-9.]/g, ""))}
+                    onBlur={() => setTouched(true)}
                     inputMode="decimal"
                     placeholder="0.00"
                     className="w-full bg-transparent text-[13.5px] font-extrabold tabular-nums outline-none"

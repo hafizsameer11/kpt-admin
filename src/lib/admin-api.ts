@@ -418,8 +418,10 @@ export async function fetchAdminRateRequests() {
       id: string;
       bandId: string;
       band: string;
-      currentRate: number;
-      proposedRate: number;
+      currentBps?: number;
+      proposedBps?: number;
+      currentRate?: number;
+      proposedRate?: number;
       effectiveFrom: string;
       reason: string | null;
       status: string;

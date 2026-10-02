@@ -74,7 +74,10 @@ function RateApprovalsPage() {
           value={
             awaiting.length
               ? `${Math.max(
-                  ...awaiting.map((r) => Math.abs(r.proposedRate - r.currentRate) * 100),
+                  0,
+                  ...awaiting.map((r) =>
+                    Math.abs((Number(r.proposedRate) || 0) - (Number(r.currentRate) || 0)) * 100,
+                  ),
                 ).toFixed(0)}bps`
               : "—"
             }
@@ -125,7 +128,9 @@ function RateApprovalsPage() {
               </thead>
               <tbody>
                 {rows.map((r) => {
-                  const delta = (r.proposedRate - r.currentRate) * 100;
+                  const current = Number(r.currentRate) || 0;
+                  const proposed = Number(r.proposedRate) || 0;
+                  const delta = (proposed - current) * 100;
                   return (
                     <tr key={r.id} className="border-b border-border/60 transition hover:bg-muted/40">
                       <td className="px-5 py-3">
@@ -135,10 +140,10 @@ function RateApprovalsPage() {
                         </span>
                       </td>
                       <td className="px-5 py-3 text-right text-[13px] tabular-nums text-muted-foreground">
-                        {r.currentRate.toFixed(2)}%
+                        {current.toFixed(2)}%
                       </td>
                       <td className="px-5 py-3 text-right text-[14px] font-extrabold tabular-nums text-brand">
-                        {r.proposedRate.toFixed(2)}%
+                        {proposed.toFixed(2)}%
                         <span
                           className={`ml-1.5 text-[11.5px] font-bold ${
                             delta > 0 ? "text-emerald-600" : "text-destructive"
