@@ -228,6 +228,31 @@ function ProductListPage() {
                           >
                             Open
                           </button>
+                        ) : p.status === "draft" || p.status === "review" ? (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              void (async () => {
+                                try {
+                                  const { updateAdminProduct } = await import("@/lib/admin-api");
+                                  const { hydrateAdminProductsFromApi } = await import(
+                                    "@/lib/admin-products-data"
+                                  );
+                                  await updateAdminProduct(p.id, { availability: "OPEN" });
+                                  const next = await hydrateAdminProductsFromApi();
+                                  setProducts(next);
+                                  toast.success(`${p.name} published`);
+                                } catch (err) {
+                                  toast.error(
+                                    err instanceof Error ? err.message : "Could not publish",
+                                  );
+                                }
+                              })();
+                            }}
+                            className="rounded-lg bg-brand px-2.5 py-1.5 text-[12px] font-bold text-primary-foreground transition hover:opacity-90"
+                          >
+                            Publish
+                          </button>
                         ) : (
                           <button
                             type="button"

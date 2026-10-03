@@ -30,6 +30,7 @@ import {
   type TicketStatus,
 } from "@/lib/admin-support-data";
 import {
+  fetchAdminTeam,
   fetchAdminTicket,
   resolveAdminUploadUrl,
   updateAdminTicket,
@@ -67,7 +68,7 @@ export const Route = createFileRoute("/support_/$ticketId")({
   component: TicketDetailPage,
 });
 
-const AGENTS: [string, ...string[]] = ["Tolu A.", "Ngozi E.", "Kelechi M.", "Farida S."];
+type TeamAgent = { id: string; name: string; email: string; role: string };
 
 function isImageAttachment(url?: string | null, name?: string | null) {
   const hay = `${url || ""} ${name || ""}`;
@@ -149,8 +150,11 @@ function TicketDetailPage() {
   const [reply, setReply] = useState("");
   const [status, setStatus] = useState<TicketStatus>("open");
   const [assignee, setAssignee] = useState("Unassigned");
+  const [assigneeAdminId, setAssigneeAdminId] = useState<string | null>(null);
   const [assignOpen, setAssignOpen] = useState(false);
-  const [assignPick, setAssignPick] = useState(AGENTS[0]);
+  const [agents, setAgents] = useState<TeamAgent[]>([]);
+  const [assignPick, setAssignPick] = useState<string | null>(null);
+  const [assignBusy, setAssignBusy] = useState(false);
   const [resolveOpen, setResolveOpen] = useState(false);
   const [resolution, setResolution] = useState("");
   const [sending, setSending] = useState(false);
@@ -184,7 +188,26 @@ function TicketDetailPage() {
     setMessages(ticket.messages);
     setStatus(ticket.status);
     setAssignee(ticket.assignee);
+    setAssigneeAdminId(ticket.assigneeAdminId ?? null);
   }, [ticket]);
+
+  useEffect(() => {
+    let alive = true;
+    void fetchAdminTeam()
+      .then((rows) => {
+        if (!alive) return;
+        const active = rows
+          .filter((r) => r.active)
+          .map((r) => ({ id: r.id, name: r.name, email: r.email, role: r.role }));
+        setAgents(active);
+      })
+      .catch(() => {
+        if (alive) setAgents([]);
+      });
+    return () => {
+      alive = false;
+    };
+  }, []);
 
   if (ticket === undefined) {
     return (
@@ -312,13 +335,13 @@ function TicketDetailPage() {
           <button
             type="button"
             onClick={() => {
-              setAssignPick(AGENTS[0]);
+              setAssignPick(assigneeAdminId ?? agents[0]?.id ?? null);
               setAssignOpen(true);
             }}
             className="inline-flex h-9 items-center gap-2 rounded-lg border border-border bg-card px-3 text-[12.5px] font-bold transition hover:border-brand/30"
           >
             <UserPlus className="size-4" />
-            Assign
+            {assignee === "Unassigned" ? "Assign" : "Reassign"}
           </button>
           <button
             type="button"
@@ -541,23 +564,37 @@ function TicketDetailPage() {
           <DialogHeader>
             <DialogTitle>Assign ticket</DialogTitle>
             <DialogDescription>
-              Choose the agent who owns {ticket.ref}. They will be notified immediately.
+              Pick a Team member who should own {ticket.ref}. They get an email and the ticket shows
+              under their name — any admin can still reply, but ownership is clear.
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-2">
-            {AGENTS.map((a) => (
-              <button
-                key={a}
-                type="button"
-                onClick={() => setAssignPick(a)}
-                className={`flex w-full items-center justify-between rounded-xl border px-4 py-3 text-left text-[13px] font-semibold transition ${
-                  assignPick === a ? "border-brand bg-brand/6 text-brand" : "border-border hover:border-brand/30"
-                }`}
-              >
-                {a}
-                {assignPick === a ? <CheckCircle2 className="size-4" /> : null}
-              </button>
-            ))}
+          <div className="max-h-72 space-y-2 overflow-y-auto">
+            {agents.length === 0 ? (
+              <p className="rounded-xl border border-dashed border-border px-4 py-6 text-center text-[13px] text-muted-foreground">
+                No active team members found. Invite someone under Team first.
+              </p>
+            ) : (
+              agents.map((a) => (
+                <button
+                  key={a.id}
+                  type="button"
+                  onClick={() => setAssignPick(a.id)}
+                  className={`flex w-full items-center justify-between rounded-xl border px-4 py-3 text-left transition ${
+                    assignPick === a.id
+                      ? "border-brand bg-brand/6 text-brand"
+                      : "border-border hover:border-brand/30"
+                  }`}
+                >
+                  <span>
+                    <span className="block text-[13px] font-semibold">{a.name}</span>
+                    <span className="block text-[11.5px] text-muted-foreground">
+                      {a.email} · {a.role}
+                    </span>
+                  </span>
+                  {assignPick === a.id ? <CheckCircle2 className="size-4 shrink-0" /> : null}
+                </button>
+              ))
+            )}
           </div>
           <DialogFooter>
             <button
@@ -569,24 +606,33 @@ function TicketDetailPage() {
             </button>
             <button
               type="button"
+              disabled={!assignPick || assignBusy}
               onClick={() => {
+                const picked = agents.find((a) => a.id === assignPick);
+                if (!picked) return;
+                setAssignBusy(true);
                 void updateAdminTicket(ticket.id, {
-                  adminNote: `Assigned to ${assignPick}`,
-                  assignee: assignPick,
+                  assigneeAdminId: picked.id,
                   status: "IN_PROGRESS",
                 })
-                  .then(() => {
-                    setAssignee(assignPick);
+                  .then(() => fetchAdminTicket(ticket.id))
+                  .then((row) => {
+                    const mapped = mapSupportTicket(row);
+                    setTicket(mapped);
+                    setAssignee(mapped.assignee);
+                    setAssigneeAdminId(mapped.assigneeAdminId ?? picked.id);
+                    setStatus(mapped.status);
                     setAssignOpen(false);
-                    toast.success(`Ticket assigned to ${assignPick}`);
+                    toast.success(`Ticket assigned to ${picked.name} · email sent`);
                   })
                   .catch((err) =>
                     toast.error(err instanceof Error ? err.message : "Could not assign"),
-                  );
+                  )
+                  .finally(() => setAssignBusy(false));
               }}
-              className="h-10 rounded-lg bg-brand px-4 text-[13px] font-bold text-primary-foreground"
+              className="h-10 rounded-lg bg-brand px-4 text-[13px] font-bold text-primary-foreground disabled:opacity-40"
             >
-              Assign
+              {assignBusy ? "Assigning…" : "Assign"}
             </button>
           </DialogFooter>
         </DialogContent>

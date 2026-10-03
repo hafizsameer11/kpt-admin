@@ -41,6 +41,7 @@ export type SupportTicket = {
   updatedAt: string;
   channel: "In-app chat" | "Email" | "Phone";
   assignee: string;
+  assigneeAdminId?: string | null;
   firstResponse: string;
   attachmentUrl?: string | null;
   attachmentName?: string | null;

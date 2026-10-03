@@ -594,7 +594,8 @@ export function mapSupportTicket(
     createdAt: formatAdminDateTime(row.createdAt),
     updatedAt: formatAdminDateTime(row.updatedAt),
     channel: "In-app chat",
-    assignee: "Unassigned",
+    assignee: row.assignee?.name?.trim() || "Unassigned",
+    assigneeAdminId: row.assigneeAdminId ?? row.assignee?.id ?? null,
     firstResponse: "—",
     attachmentUrl: row.attachmentUrl ?? null,
     attachmentName: row.attachmentName ?? null,
@@ -650,15 +651,30 @@ export function mapAdminProduct(
 ): AdminProduct {
   const details = row.details ?? null;
   const documents =
-    details?.documents?.map((d, i) => ({
-      id: `doc-${row.id}-${i}`,
-      name: d.name,
-      kind: "Offer document" as const,
-      size: d.meta || "—",
-      uploadedAt: "—",
-      uploadedBy: "—",
-      url: d.url || undefined,
-    })) ?? [];
+    details?.documents?.map((d, i) => {
+      const metaParts = (d.meta || "").split(" · ").map((p) => p.trim()).filter(Boolean);
+      const kindCandidate = metaParts[0];
+      const knownKinds = [
+        "Term sheet",
+        "Offer document",
+        "Issuer rating",
+        "Risk disclosure",
+        "Prospectus",
+      ] as const;
+      const kind = knownKinds.includes(kindCandidate as (typeof knownKinds)[number])
+        ? (kindCandidate as (typeof knownKinds)[number])
+        : ("Offer document" as const);
+      const size = metaParts.length > 1 ? metaParts.slice(1).join(" · ") : "—";
+      return {
+        id: `doc-${row.id}-${i}`,
+        name: d.name,
+        kind,
+        size,
+        uploadedAt: "—",
+        uploadedBy: "—",
+        url: d.url || undefined,
+      };
+    }) ?? [];
 
   return {
     id: row.id,
