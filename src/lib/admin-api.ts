@@ -521,6 +521,8 @@ export type AdminTicketRow = {
   status: string;
   attachmentUrl?: string | null;
   attachmentName?: string | null;
+  assigneeAdminId?: string | null;
+  assignee?: { id: string; name: string; email: string } | null;
   createdAt: string;
   updatedAt: string;
   messages?: AdminTicketMessageRow[];
@@ -556,12 +558,13 @@ export async function updateAdminTicket(
     status?: string;
     adminNote?: string;
     reply?: string;
-    assignee?: string;
+    /** Team admin id — null clears. */
+    assigneeAdminId?: string | null;
     attachmentUrl?: string;
     attachmentName?: string;
   },
 ) {
-  return adminApi<unknown>(`/v1/admin/support/tickets/${id}`, {
+  return adminApi<AdminTicketRow>(`/v1/admin/support/tickets/${id}`, {
     method: "PATCH",
     body: JSON.stringify(input),
   });
@@ -836,6 +839,22 @@ export async function fetchAdminProducts() {
 
 export async function fetchAdminProductCategories() {
   return adminApi<{ id: string; slug: string; name: string }[]>("/v1/admin/products/categories");
+}
+
+export async function uploadAdminProductAttachment(input: {
+  contentType: string;
+  dataBase64: string;
+  filename?: string;
+}) {
+  return adminApi<{
+    url: string;
+    path: string;
+    bytes: number;
+    filename: string;
+  }>("/v1/admin/products/attachments", {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
 }
 
 export async function createAdminProduct(input: {

@@ -79,6 +79,7 @@ function CreateProductPage() {
   const [docUrl, setDocUrl] = useState("");
   const [docKind, setDocKind] = useState<ProductDoc["kind"]>("Term sheet");
   const [docSize, setDocSize] = useState("—");
+  const [docUploading, setDocUploading] = useState(false);
   const [descTouched, setDescTouched] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [draftBusy, setDraftBusy] = useState(false);
@@ -128,7 +129,7 @@ function CreateProductPage() {
       });
       await hydrateAdminProductsFromApi();
       toast.success(`${created.name} saved as draft`);
-      navigate({ to: "/products" });
+      navigate({ to: "/products/$productId", params: { productId: created.id } });
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Could not save draft");
     } finally {
@@ -150,24 +151,43 @@ function CreateProductPage() {
   async function handleDocFile(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
+    setDocUploading(true);
     try {
-      const dataUrl = await new Promise<string>((resolve, reject) => {
+      const dataBase64 = await new Promise<string>((resolve, reject) => {
         const reader = new FileReader();
         reader.onload = () => resolve(String(reader.result));
         reader.onerror = () => reject(reader.error);
         reader.readAsDataURL(file);
       });
-      setDocUrl(dataUrl);
-      setDocSize(formatFileSize(file.size));
+      const { uploadAdminProductAttachment } = await import("@/lib/admin-api");
+      const uploaded = await uploadAdminProductAttachment({
+        contentType: file.type || "application/pdf",
+        dataBase64,
+        filename: file.name,
+      });
+      setDocUrl(uploaded.url);
+      setDocSize(formatFileSize(uploaded.bytes || file.size));
       if (!docName.trim()) setDocName(file.name.replace(/\.[^.]+$/, "") || file.name);
-    } catch {
-      toast.error("Could not read file");
+      toast.success("File uploaded");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not upload file");
+    } finally {
+      setDocUploading(false);
+      e.target.value = "";
     }
-    e.target.value = "";
   }
 
   function saveDoc() {
     if (!docName.trim()) return;
+    const url = docUrl.trim();
+    if (url && /^data:/i.test(url)) {
+      toast.error("Upload the file instead of pasting base64");
+      return;
+    }
+    if (!url) {
+      toast.error("Select a file or paste a PDF URL");
+      return;
+    }
     const trimmed = docName.trim();
     const hasExt = /\.[a-z0-9]+$/i.test(trimmed);
     const entry: ProductDoc = {
@@ -177,7 +197,7 @@ function CreateProductPage() {
       size: docSize,
       uploadedAt: "Just now",
       uploadedBy: "You",
-      url: docUrl.trim() || undefined,
+      url,
     };
     setDocs((prev) =>
       replaceId ? prev.map((d) => (d.id === replaceId ? entry : d)) : [...prev, entry],
@@ -564,17 +584,24 @@ function CreateProductPage() {
           <DialogHeader>
             <DialogTitle>{replaceId ? "Replace document" : "Upload document"}</DialogTitle>
             <DialogDescription>
-              Prototype upload — name the file and choose what kind of document it is.
+              Choose a PDF or image from your computer, or paste a public URL. Files are uploaded to
+              Kipit storage — they are not stored as base64 in the form.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-3">
             <Field label="File">
               <input
                 type="file"
-                accept=".pdf,application/pdf,image/jpeg,image/png,image/webp,image/gif"
+                accept=".pdf,application/pdf,image/jpeg,image/png,image/webp"
+                disabled={docUploading}
                 onChange={(e) => void handleDocFile(e)}
-                className="w-full rounded-lg border border-border bg-background px-3 py-2 text-[13px] file:mr-3 file:rounded-md file:border-0 file:bg-brand/10 file:px-2.5 file:py-1 file:text-[12px] file:font-bold file:text-brand"
+                className="w-full rounded-lg border border-border bg-background px-3 py-2 text-[13px] file:mr-3 file:rounded-md file:border-0 file:bg-brand/10 file:px-2.5 file:py-1 file:text-[12px] file:font-bold file:text-brand disabled:opacity-50"
               />
+              {docUploading ? (
+                <p className="mt-1.5 text-[12px] text-muted-foreground">Uploading…</p>
+              ) : docUrl && !/^data:/i.test(docUrl) ? (
+                <p className="mt-1.5 truncate text-[12px] text-emerald-700">Ready · {docUrl}</p>
+              ) : null}
             </Field>
             <Field label="File name">
               <input
@@ -595,12 +622,13 @@ function CreateProductPage() {
                 ))}
               </select>
             </Field>
-            <Field label="PDF URL (optional)">
+            <Field label="Or paste PDF URL">
               <input
-                value={docUrl}
+                value={/^data:/i.test(docUrl) ? "" : docUrl}
                 onChange={(e) => setDocUrl(e.target.value)}
                 placeholder="https://…"
-                className="w-full rounded-lg border border-border bg-background px-3 py-2.5 text-[13.5px] outline-none focus:border-brand"
+                disabled={docUploading}
+                className="w-full rounded-lg border border-border bg-background px-3 py-2.5 text-[13.5px] outline-none focus:border-brand disabled:opacity-50"
               />
             </Field>
           </div>
@@ -614,7 +642,7 @@ function CreateProductPage() {
             </button>
             <button
               type="button"
-              disabled={!docName.trim()}
+              disabled={!docName.trim() || docUploading || !docUrl.trim() || /^data:/i.test(docUrl)}
               onClick={saveDoc}
               className="inline-flex h-10 items-center rounded-lg bg-brand px-4 text-[13px] font-bold text-primary-foreground disabled:opacity-40"
             >

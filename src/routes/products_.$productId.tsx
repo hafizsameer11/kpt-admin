@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { createFileRoute, Link, useParams } from "@tanstack/react-router";
 import {
   ArrowLeft,
@@ -32,6 +32,8 @@ import {
   PRODUCT_STATUS_LABEL,
   PRODUCT_STATUS_TONE,
   findProduct,
+  hydrateAdminProductsFromApi,
+  type AdminProduct,
   type ProductDoc,
 } from "@/lib/admin-products-data";
 
@@ -89,9 +91,35 @@ function docsToDetails(docs: ProductDoc[]): AdminProductDetails["documents"] {
   }));
 }
 
+function applyProductLocalState(
+  p: AdminProduct,
+  setters: {
+    setRate: (v: string) => void;
+    setMinimum: (v: string) => void;
+    setCategory: (v: AdminProduct["category"]) => void;
+    setDocs: (v: ProductDoc[]) => void;
+    setStatus: (v: AdminProduct["status"]) => void;
+    setAbout: (v: string) => void;
+    setHowText: (v: string) => void;
+    setRisksText: (v: string) => void;
+    setFaqsText: (v: string) => void;
+  },
+) {
+  setters.setRate(String(p.rate));
+  setters.setMinimum(String(p.minimum));
+  setters.setCategory(p.category);
+  setters.setDocs(p.documents ?? []);
+  setters.setStatus(p.status);
+  setters.setAbout(p.cms?.about || p.description || "");
+  setters.setHowText((p.cms?.how ?? []).join("\n"));
+  setters.setRisksText((p.cms?.risks ?? []).join("\n"));
+  setters.setFaqsText((p.cms?.faqs ?? []).map((f) => `${f.q} | ${f.a}`).join("\n"));
+}
+
 function ProductDetailPage() {
   const { productId } = useParams({ from: "/products_/$productId" });
-  const product = findProduct(productId);
+  const [product, setProduct] = useState<AdminProduct | null>(() => findProduct(productId) ?? null);
+  const [loading, setLoading] = useState(!findProduct(productId));
 
   const [editOpen, setEditOpen] = useState(false);
   const [closeOpen, setCloseOpen] = useState(false);
@@ -101,7 +129,63 @@ function ProductDetailPage() {
   const [docUrl, setDocUrl] = useState("");
   const [docKind, setDocKind] = useState<ProductDoc["kind"]>("Term sheet");
   const [docSize, setDocSize] = useState("—");
+  const [docUploading, setDocUploading] = useState(false);
   const [savingCms, setSavingCms] = useState(false);
+  const [publishing, setPublishing] = useState(false);
+
+  const [rate, setRate] = useState("");
+  const [minimum, setMinimum] = useState("");
+  const [category, setCategory] = useState<AdminProduct["category"]>("Fixed Income");
+  const [docs, setDocs] = useState<ProductDoc[]>([]);
+  const [status, setStatus] = useState<AdminProduct["status"]>("draft");
+  const [about, setAbout] = useState("");
+  const [howText, setHowText] = useState("");
+  const [risksText, setRisksText] = useState("");
+  const [faqsText, setFaqsText] = useState("");
+
+  useEffect(() => {
+    let cancelled = false;
+    const cached = findProduct(productId);
+    if (cached) {
+      setProduct(cached);
+      applyProductLocalState(cached, {
+        setRate,
+        setMinimum,
+        setCategory,
+        setDocs,
+        setStatus,
+        setAbout,
+        setHowText,
+        setRisksText,
+        setFaqsText,
+      });
+      setLoading(false);
+    } else {
+      setLoading(true);
+    }
+    void hydrateAdminProductsFromApi().then((list) => {
+      if (cancelled) return;
+      const next = list.find((p) => p.id === productId) ?? null;
+      setProduct(next);
+      if (next) {
+        applyProductLocalState(next, {
+          setRate,
+          setMinimum,
+          setCategory,
+          setDocs,
+          setStatus,
+          setAbout,
+          setHowText,
+          setRisksText,
+          setFaqsText,
+        });
+      }
+      setLoading(false);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [productId]);
 
   function formatFileSize(bytes: number) {
     if (bytes < 1024) return `${bytes} B`;
@@ -112,35 +196,43 @@ function ProductDetailPage() {
   async function handleDocFile(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
+    setDocUploading(true);
     try {
-      const dataUrl = await new Promise<string>((resolve, reject) => {
+      const dataBase64 = await new Promise<string>((resolve, reject) => {
         const reader = new FileReader();
         reader.onload = () => resolve(String(reader.result));
         reader.onerror = () => reject(reader.error);
         reader.readAsDataURL(file);
       });
-      setDocUrl(dataUrl);
-      setDocSize(formatFileSize(file.size));
+      const { uploadAdminProductAttachment } = await import("@/lib/admin-api");
+      const uploaded = await uploadAdminProductAttachment({
+        contentType: file.type || "application/pdf",
+        dataBase64,
+        filename: file.name,
+      });
+      setDocUrl(uploaded.url);
+      setDocSize(formatFileSize(uploaded.bytes || file.size));
       if (!docName.trim()) setDocName(file.name.replace(/\.[^.]+$/, "") || file.name);
-    } catch {
-      toast.error("Could not read file");
+      toast.success("File uploaded");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not upload file");
+    } finally {
+      setDocUploading(false);
+      e.target.value = "";
     }
-    e.target.value = "";
   }
 
-  const [rate, setRate] = useState(product ? String(product.rate) : "");
-  const [minimum, setMinimum] = useState(product ? String(product.minimum) : "");
-  const [category, setCategory] = useState(product?.category ?? "Fixed Income");
-  const [docs, setDocs] = useState<ProductDoc[]>(product?.documents ?? []);
-  const [status, setStatus] = useState(product?.status ?? "draft");
-  const [about, setAbout] = useState(product?.cms?.about || product?.description || "");
-  const [howText, setHowText] = useState((product?.cms?.how ?? []).join("\n"));
-  const [risksText, setRisksText] = useState((product?.cms?.risks ?? []).join("\n"));
-  const [faqsText, setFaqsText] = useState(
-    (product?.cms?.faqs ?? []).map((f) => `${f.q} | ${f.a}`).join("\n"),
-  );
-
   const faqPreview = useMemo(() => faqsFromText(faqsText), [faqsText]);
+
+  if (loading) {
+    return (
+      <AdminShell title="Product">
+        <Panel>
+          <p className="py-10 text-center text-[13.5px] text-muted-foreground">Loading product…</p>
+        </Panel>
+      </AdminShell>
+    );
+  }
 
   if (!product) {
     return (
@@ -161,7 +253,6 @@ function ProductDetailPage() {
 
   async function persistDetails(nextDocs: ProductDoc[] = docs) {
     const { updateAdminProduct } = await import("@/lib/admin-api");
-    const { hydrateAdminProductsFromApi } = await import("@/lib/admin-products-data");
     await updateAdminProduct(product!.id, {
       description: about.trim() || undefined,
       details: {
@@ -172,7 +263,9 @@ function ProductDetailPage() {
         documents: docsToDetails(nextDocs),
       },
     });
-    await hydrateAdminProductsFromApi();
+    const list = await hydrateAdminProductsFromApi();
+    const refreshed = list.find((p) => p.id === product!.id) ?? null;
+    if (refreshed) setProduct(refreshed);
   }
 
   return (
@@ -209,7 +302,6 @@ function ProductDetailPage() {
                 void (async () => {
                   try {
                     const { updateAdminProduct } = await import("@/lib/admin-api");
-                    const { hydrateAdminProductsFromApi } = await import("@/lib/admin-products-data");
                     await updateAdminProduct(product.id, { availability: "OPEN" });
                     await hydrateAdminProductsFromApi();
                     setStatus("live");
@@ -222,6 +314,30 @@ function ProductDetailPage() {
               className="inline-flex h-9 items-center rounded-lg border border-border px-3.5 text-[12.5px] font-bold transition hover:border-brand/40"
             >
               Open product
+            </button>
+          ) : status === "draft" || status === "review" ? (
+            <button
+              type="button"
+              disabled={publishing}
+              onClick={() => {
+                void (async () => {
+                  setPublishing(true);
+                  try {
+                    const { updateAdminProduct } = await import("@/lib/admin-api");
+                    await updateAdminProduct(product.id, { availability: "OPEN" });
+                    await hydrateAdminProductsFromApi();
+                    setStatus("live");
+                    toast.success(`${product.name} published`);
+                  } catch (err) {
+                    toast.error(err instanceof Error ? err.message : "Could not publish");
+                  } finally {
+                    setPublishing(false);
+                  }
+                })();
+              }}
+              className="inline-flex h-9 items-center rounded-lg bg-brand px-3.5 text-[12.5px] font-bold text-primary-foreground transition hover:opacity-90 disabled:opacity-50"
+            >
+              {publishing ? "Publishing…" : "Publish product"}
             </button>
           ) : (
             <button
@@ -567,7 +683,8 @@ function ProductDetailPage() {
           <DialogHeader>
             <DialogTitle>{replaceId ? "Replace document" : "Add document"}</DialogTitle>
             <DialogDescription>
-              Name the file and optionally paste a public PDF URL customers can open in the app.
+              Choose a PDF or image from your computer, or paste a public URL. Files upload to Kipit
+              storage so the page stays responsive.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-3">
@@ -577,10 +694,16 @@ function ProductDetailPage() {
               </span>
               <input
                 type="file"
-                accept=".pdf,application/pdf,image/jpeg,image/png,image/webp,image/gif"
+                accept=".pdf,application/pdf,image/jpeg,image/png,image/webp"
+                disabled={docUploading}
                 onChange={(e) => void handleDocFile(e)}
-                className="w-full rounded-lg border border-border bg-background px-3 py-2 text-[13px] file:mr-3 file:rounded-md file:border-0 file:bg-brand/10 file:px-2.5 file:py-1 file:text-[12px] file:font-bold file:text-brand"
+                className="w-full rounded-lg border border-border bg-background px-3 py-2 text-[13px] file:mr-3 file:rounded-md file:border-0 file:bg-brand/10 file:px-2.5 file:py-1 file:text-[12px] file:font-bold file:text-brand disabled:opacity-50"
               />
+              {docUploading ? (
+                <p className="mt-1.5 text-[12px] text-muted-foreground">Uploading…</p>
+              ) : docUrl && !/^data:/i.test(docUrl) ? (
+                <p className="mt-1.5 truncate text-[12px] text-emerald-700">Ready · {docUrl}</p>
+              ) : null}
             </label>
             <label className="block">
               <span className="mb-1.5 block text-[11px] font-bold uppercase tracking-[0.12em] text-muted-foreground">
@@ -609,13 +732,14 @@ function ProductDetailPage() {
             </label>
             <label className="block">
               <span className="mb-1.5 block text-[11px] font-bold uppercase tracking-[0.12em] text-muted-foreground">
-                PDF URL (optional)
+                Or paste PDF URL
               </span>
               <input
-                value={docUrl}
+                value={/^data:/i.test(docUrl) ? "" : docUrl}
                 onChange={(e) => setDocUrl(e.target.value)}
                 placeholder="https://…"
-                className="w-full rounded-lg border border-border bg-background px-3 py-2.5 text-[13.5px] outline-none focus:border-brand"
+                disabled={docUploading}
+                className="w-full rounded-lg border border-border bg-background px-3 py-2.5 text-[13.5px] outline-none focus:border-brand disabled:opacity-50"
               />
             </label>
           </div>
@@ -629,9 +753,16 @@ function ProductDetailPage() {
             </button>
             <button
               type="button"
-              disabled={!docName.trim()}
+              disabled={
+                !docName.trim() || docUploading || !docUrl.trim() || /^data:/i.test(docUrl)
+              }
               onClick={() => {
                 void (async () => {
+                  const url = docUrl.trim();
+                  if (!url || /^data:/i.test(url)) {
+                    toast.error("Select a file or paste a PDF URL");
+                    return;
+                  }
                   const trimmed = docName.trim();
                   const hasExt = /\.[a-z0-9]+$/i.test(trimmed);
                   const entry: ProductDoc = {
@@ -641,7 +772,7 @@ function ProductDetailPage() {
                     size: docSize,
                     uploadedAt: "Just now",
                     uploadedBy: "You",
-                    url: docUrl.trim() || undefined,
+                    url,
                   };
                   const next = replaceId
                     ? docs.map((d) => (d.id === replaceId ? entry : d))
