@@ -543,9 +543,47 @@ function mapTicketStatus(status: string): TicketStatus {
   return "open";
 }
 
+function mapTicketMessageAuthor(
+  author: string,
+  customerName: string,
+): { author: string; role: "customer" | "agent" | "system" } {
+  const a = author.toUpperCase();
+  if (a === "SUPPORT" || a === "AGENT") return { author: "Support agent", role: "agent" };
+  if (a === "SYSTEM") return { author: "System", role: "system" };
+  return { author: customerName || "Customer", role: "customer" };
+}
+
 export function mapSupportTicket(
   row: Awaited<ReturnType<typeof fetchAdminTickets>>[number],
 ): SupportTicket {
+  const customerName = row.user.name || "Customer";
+  const apiMessages = Array.isArray(row.messages) ? row.messages : [];
+  const messages =
+    apiMessages.length > 0
+      ? apiMessages.map((m) => {
+          const mapped = mapTicketMessageAuthor(m.author, customerName);
+          return {
+            id: m.id,
+            author: mapped.author,
+            role: mapped.role,
+            at: formatAdminDateTime(m.createdAt),
+            body: m.body,
+            attachmentUrl: m.attachmentUrl ?? null,
+            attachmentName: m.attachmentName ?? null,
+          };
+        })
+      : [
+          {
+            id: `${row.id}-body`,
+            author: customerName,
+            role: "customer" as const,
+            at: formatAdminDateTime(row.createdAt),
+            body: row.body,
+            attachmentUrl: row.attachmentUrl ?? null,
+            attachmentName: row.attachmentName ?? null,
+          },
+        ];
+
   return {
     id: row.id,
     ref: row.id.slice(0, 8).toUpperCase(),
@@ -571,19 +609,9 @@ export function mapSupportTicket(
       invested: 0,
       lifetimeInterest: 0,
     },
-    messages: [
-      {
-        id: `${row.id}-body`,
-        author: row.user.name || "Customer",
-        role: "customer",
-        at: formatAdminDateTime(row.createdAt),
-        body: row.body,
-        attachmentUrl: row.attachmentUrl ?? null,
-        attachmentName: row.attachmentName ?? null,
-      },
-    ],
+    messages,
     transactions: [],
-    history: [{ at: formatAdminDateTime(row.createdAt), label: "Ticket opened", by: row.user.name || "Customer" }],
+    history: [{ at: formatAdminDateTime(row.createdAt), label: "Ticket opened", by: customerName }],
   };
 }
 

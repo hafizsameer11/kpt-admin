@@ -1,14 +1,17 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createFileRoute, Link, useParams } from "@tanstack/react-router";
 import {
   ArrowLeft,
   CheckCircle2,
   History,
+  ImagePlus,
   MessageSquare,
+  Paperclip,
   Receipt,
   Send,
   UserRound,
   UserPlus,
+  X,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -26,7 +29,13 @@ import {
   type TicketMessage,
   type TicketStatus,
 } from "@/lib/admin-support-data";
-import { updateAdminTicket } from "@/lib/admin-api";
+import {
+  fetchAdminTicket,
+  resolveAdminUploadUrl,
+  updateAdminTicket,
+  uploadAdminTicketAttachment,
+} from "@/lib/admin-api";
+import { mapSupportTicket } from "@/lib/admin-mappers";
 import {
   Dialog,
   DialogContent,
@@ -60,15 +69,81 @@ export const Route = createFileRoute("/support_/$ticketId")({
 
 const AGENTS: [string, ...string[]] = ["Tolu A.", "Ngozi E.", "Kelechi M.", "Farida S."];
 
+function isImageAttachment(url?: string | null, name?: string | null) {
+  const hay = `${url || ""} ${name || ""}`;
+  return /\.(jpe?g|png|webp|gif)(\?|#|$)/i.test(hay) || /\/uploads\/support\//i.test(url || "");
+}
+
+/** Hide accidental pasted base64 / data-URLs so the page doesn't blow out. */
+function displayMessageBody(body: string) {
+  const text = (body || "").trim();
+  if (!text) return "";
+  if (/^data:image\//i.test(text) || (text.length > 400 && /^[A-Za-z0-9+/=\s]+$/.test(text))) {
+    return "[Image attachment — open the preview below]";
+  }
+  if (text.length > 4000) return `${text.slice(0, 4000)}…`;
+  return text;
+}
+
+function TicketAttachment({
+  url,
+  name,
+}: {
+  url?: string | null;
+  name?: string | null;
+}) {
+  const [failed, setFailed] = useState(false);
+  const resolved = resolveAdminUploadUrl(url);
+  if (!resolved) return null;
+  const image = !failed && isImageAttachment(resolved, name);
+
+  if (image) {
+    return (
+      <div className="mt-3 space-y-2">
+        <a
+          href={resolved}
+          target="_blank"
+          rel="noreferrer"
+          className="block max-w-md overflow-hidden rounded-xl border border-border bg-muted/30"
+        >
+          <img
+            src={resolved}
+            alt={name || "Attachment"}
+            className="max-h-64 w-full object-contain"
+            onError={() => setFailed(true)}
+          />
+        </a>
+        <a
+          href={resolved}
+          target="_blank"
+          rel="noreferrer"
+          className="inline-flex max-w-full truncate text-[12px] font-bold text-brand hover:underline"
+        >
+          {name || "Open image"}
+        </a>
+      </div>
+    );
+  }
+
+  return (
+    <div className="mt-3">
+      <a
+        href={resolved}
+        target="_blank"
+        rel="noreferrer"
+        className="inline-flex max-w-full items-center gap-2 truncate rounded-lg border border-border bg-muted/40 px-3 py-2 text-[12px] font-bold text-brand hover:underline"
+      >
+        <Paperclip className="size-3.5 shrink-0" />
+        {name || "View attachment"}
+      </a>
+    </div>
+  );
+}
+
 function TicketDetailPage() {
   const { ticketId } = useParams({ from: "/support_/$ticketId" });
   const [ticket, setTicket] = useState<SupportTicket | null | undefined>(undefined);
-
-  useEffect(() => {
-    void hydrateAdminSupportFromApi().then(() => {
-      setTicket(ticketById(ticketId) ?? null);
-    });
-  }, [ticketId]);
+  const fileRef = useRef<HTMLInputElement>(null);
 
   const [messages, setMessages] = useState<TicketMessage[]>([]);
   const [reply, setReply] = useState("");
@@ -78,6 +153,31 @@ function TicketDetailPage() {
   const [assignPick, setAssignPick] = useState(AGENTS[0]);
   const [resolveOpen, setResolveOpen] = useState(false);
   const [resolution, setResolution] = useState("");
+  const [sending, setSending] = useState(false);
+  const [pendingFile, setPendingFile] = useState<{
+    name: string;
+    contentType: string;
+    dataBase64: string;
+    previewUrl?: string;
+  } | null>(null);
+
+  useEffect(() => {
+    let alive = true;
+    void (async () => {
+      try {
+        const row = await fetchAdminTicket(ticketId);
+        if (!alive) return;
+        setTicket(mapSupportTicket(row));
+      } catch {
+        await hydrateAdminSupportFromApi();
+        if (!alive) return;
+        setTicket(ticketById(ticketId) ?? null);
+      }
+    })();
+    return () => {
+      alive = false;
+    };
+  }, [ticketId]);
 
   useEffect(() => {
     if (!ticket) return;
@@ -112,29 +212,78 @@ function TicketDetailPage() {
     );
   }
 
+  function onPickFile(file: File | null) {
+    if (!file) return;
+    if (file.size > 6 * 1024 * 1024) {
+      toast.error("File too large (max 6 MB)");
+      return;
+    }
+    const allowed = /^(image\/(jpeg|jpg|png|webp|gif)|application\/pdf)$/i.test(file.type);
+    if (!allowed) {
+      toast.error("Use JPG, PNG, WEBP, GIF or PDF");
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = String(reader.result || "");
+      const base64 = result.includes(",") ? result.split(",")[1]! : result;
+      if (!base64 || base64.length < 32) {
+        toast.error("Could not read that file");
+        return;
+      }
+      setPendingFile({
+        name: file.name || "attachment.jpg",
+        contentType: file.type || "image/jpeg",
+        dataBase64: base64,
+        previewUrl: file.type.startsWith("image/") ? result : undefined,
+      });
+    };
+    reader.onerror = () => toast.error("Could not read that file");
+    reader.readAsDataURL(file);
+  }
+
   function sendReply() {
     const body = reply.trim();
-    if (!body) {
+    if (!body && !pendingFile) {
       toast.error("Write a reply before sending");
       return;
     }
-    void updateAdminTicket(ticket.id, { reply: body, status: "IN_PROGRESS" })
-      .then(() => {
-        setMessages((m) => [
-          ...m,
-          {
-            id: `m${m.length + 1}`,
-            author: assignee === "Unassigned" ? "Support agent" : assignee,
-            role: "agent",
-            at: "Just now",
-            body,
-          },
-        ]);
+    if (/^data:image\//i.test(body) || (body.length > 2000 && /^[A-Za-z0-9+/=\s]+$/.test(body))) {
+      toast.error("Don't paste images into the reply box — use Attach image instead.");
+      return;
+    }
+    setSending(true);
+    void (async () => {
+      try {
+        let attachmentUrl: string | undefined;
+        let attachmentName: string | undefined;
+        if (pendingFile) {
+          const uploaded = await uploadAdminTicketAttachment(ticket.id, {
+            contentType: pendingFile.contentType,
+            dataBase64: pendingFile.dataBase64,
+            filename: pendingFile.name,
+          });
+          attachmentUrl = uploaded.url;
+          attachmentName = uploaded.filename || pendingFile.name;
+        }
+        const replyText = body || (attachmentUrl ? "Attached a file." : "");
+        await updateAdminTicket(ticket.id, {
+          reply: replyText,
+          status: "IN_PROGRESS",
+          ...(attachmentUrl ? { attachmentUrl, attachmentName } : {}),
+        });
+        const refreshed = await fetchAdminTicket(ticket.id);
+        setTicket(mapSupportTicket(refreshed));
         setReply("");
+        setPendingFile(null);
         setStatus("pending");
         toast.success("Reply sent to customer");
-      })
-      .catch((err) => toast.error(err instanceof Error ? err.message : "Could not send reply"));
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : "Could not send reply");
+      } finally {
+        setSending(false);
+      }
+    })();
   }
 
   return (
@@ -184,7 +333,7 @@ function TicketDetailPage() {
 
       <div className="grid gap-5 xl:grid-cols-[minmax(0,1.55fr)_minmax(0,1fr)]">
         <Panel title="Conversation" icon={MessageSquare} eyebrow={`${messages.length} messages`}>
-          <div className="space-y-3 p-5">
+          <div className="space-y-3 overflow-x-hidden p-5">
             {messages.map((m) => (
               <div
                 key={m.id}
@@ -200,29 +349,10 @@ function TicketDetailPage() {
                   <span className="text-[12.5px] font-bold">{m.author}</span>
                   <span className="text-[11.5px] text-muted-foreground">{m.at}</span>
                 </div>
-                <p className="text-[13px] leading-relaxed text-foreground/85">{m.body}</p>
-                {m.attachmentUrl ? (
-                  <div className="mt-3 space-y-2">
-                    {/\.(jpe?g|png|webp|gif)(\?|#|$)/i.test(m.attachmentUrl) ||
-                    /\.(jpe?g|png|webp|gif)(\?|#|$)/i.test(m.attachmentName || "") ? (
-                      <a href={m.attachmentUrl} target="_blank" rel="noreferrer" className="block overflow-hidden rounded-xl border border-border">
-                        <img
-                          src={m.attachmentUrl}
-                          alt={m.attachmentName || "Attachment"}
-                          className="max-h-56 w-full object-cover"
-                        />
-                      </a>
-                    ) : null}
-                    <a
-                      href={m.attachmentUrl}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="inline-flex text-[12px] font-bold text-brand hover:underline"
-                    >
-                      {m.attachmentName || "View attachment"}
-                    </a>
-                  </div>
-                ) : null}
+                <p className="break-words text-[13px] leading-relaxed text-foreground/85">
+                  {displayMessageBody(m.body)}
+                </p>
+                {m.attachmentUrl ? <TicketAttachment url={m.attachmentUrl} name={m.attachmentName} /> : null}
               </div>
             ))}
           </div>
@@ -231,21 +361,83 @@ function TicketDetailPage() {
             <textarea
               value={reply}
               onChange={(e) => setReply(e.target.value)}
+              onPaste={(e) => {
+                const text = e.clipboardData.getData("text");
+                if (
+                  /^data:image\//i.test(text) ||
+                  (text.length > 2000 && /^[A-Za-z0-9+/=\s]+$/.test(text))
+                ) {
+                  e.preventDefault();
+                  toast.error("Don't paste images here — use Attach image.");
+                  return;
+                }
+                const file = e.clipboardData.files?.[0];
+                if (file) {
+                  e.preventDefault();
+                  onPickFile(file);
+                }
+              }}
               rows={4}
               placeholder="Write a reply to the customer…"
-              className="w-full resize-none rounded-xl border border-border bg-muted/30 p-3 text-[13px] outline-none focus:border-brand/40"
+              className="w-full max-w-full resize-none break-words rounded-xl border border-border bg-muted/30 p-3 text-[13px] outline-none focus:border-brand/40"
             />
-            <div className="mt-3 flex items-center justify-between gap-3">
-              <p className="text-[12px] text-muted-foreground">
-                Replies are delivered in-app and by email.
-              </p>
+            {pendingFile ? (
+              <div className="mt-3 flex items-center gap-3 rounded-xl border border-border bg-muted/30 p-3">
+                {pendingFile.previewUrl ? (
+                  <img
+                    src={pendingFile.previewUrl}
+                    alt=""
+                    className="size-14 rounded-lg object-cover"
+                  />
+                ) : (
+                  <span className="grid size-14 place-items-center rounded-lg bg-card">
+                    <Paperclip className="size-5 text-muted-foreground" />
+                  </span>
+                )}
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-[13px] font-semibold">{pendingFile.name}</p>
+                  <p className="text-[11.5px] text-muted-foreground">Ready to send with your reply</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setPendingFile(null)}
+                  className="grid size-8 place-items-center rounded-full hover:bg-muted"
+                  aria-label="Remove attachment"
+                >
+                  <X className="size-4" />
+                </button>
+              </div>
+            ) : null}
+            <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
+              <div className="flex items-center gap-2">
+                <input
+                  ref={fileRef}
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp,image/gif,application/pdf"
+                  className="hidden"
+                  onChange={(e) => {
+                    onPickFile(e.target.files?.[0] ?? null);
+                    e.currentTarget.value = "";
+                  }}
+                />
+                <button
+                  type="button"
+                  onClick={() => fileRef.current?.click()}
+                  className="inline-flex h-10 items-center gap-2 rounded-lg border border-border bg-card px-3 text-[12.5px] font-bold transition hover:border-brand/30"
+                >
+                  <ImagePlus className="size-4" />
+                  Attach image
+                </button>
+                <p className="text-[12px] text-muted-foreground">JPG/PNG/PDF · max 6 MB</p>
+              </div>
               <button
                 type="button"
+                disabled={sending}
                 onClick={sendReply}
-                className="inline-flex h-10 items-center gap-2 rounded-lg bg-brand px-4 text-[13px] font-bold text-primary-foreground transition hover:opacity-90"
+                className="inline-flex h-10 items-center gap-2 rounded-lg bg-brand px-4 text-[13px] font-bold text-primary-foreground transition hover:opacity-90 disabled:opacity-60"
               >
                 <Send className="size-4" />
-                Send reply
+                {sending ? "Sending…" : "Send reply"}
               </button>
             </div>
           </div>

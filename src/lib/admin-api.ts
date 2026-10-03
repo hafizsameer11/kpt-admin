@@ -10,6 +10,17 @@ export const API_BASE =
     (import.meta as { env?: { VITE_API_URL?: string } }).env?.VITE_API_URL) ||
   "https://kipit-backend.amctraders.online";
 
+/** Rewrite stored upload URLs onto the API host the admin console actually uses. */
+export function resolveAdminUploadUrl(url: string | null | undefined): string {
+  const v = (url ?? "").trim();
+  if (!v) return "";
+  if (v.startsWith("/uploads/")) return `${API_BASE.replace(/\/$/, "")}${v}`;
+  const marker = "/uploads/";
+  const idx = v.indexOf(marker);
+  if (idx >= 0) return `${API_BASE.replace(/\/$/, "")}${v.slice(idx)}`;
+  return v;
+}
+
 export class AdminApiError extends Error {
   status: number;
   code?: string;
@@ -493,26 +504,62 @@ export async function fetchAdminAudit() {
   >("/v1/admin/audit");
 }
 
+export type AdminTicketMessageRow = {
+  id: string;
+  author: string;
+  body: string;
+  attachmentUrl?: string | null;
+  attachmentName?: string | null;
+  createdAt: string;
+};
+
+export type AdminTicketRow = {
+  id: string;
+  category: string;
+  subject: string;
+  body: string;
+  status: string;
+  attachmentUrl?: string | null;
+  attachmentName?: string | null;
+  createdAt: string;
+  updatedAt: string;
+  messages?: AdminTicketMessageRow[];
+  user: { id: string; name: string; email: string | null };
+};
+
 export async function fetchAdminTickets() {
-  return adminApi<
-    {
-      id: string;
-      category: string;
-      subject: string;
-      body: string;
-      status: string;
-      attachmentUrl?: string | null;
-      attachmentName?: string | null;
-      createdAt: string;
-      updatedAt: string;
-      user: { id: string; name: string; email: string | null };
-    }[]
-  >("/v1/admin/support/tickets");
+  return adminApi<AdminTicketRow[]>("/v1/admin/support/tickets");
+}
+
+export async function fetchAdminTicket(id: string) {
+  return adminApi<AdminTicketRow>(`/v1/admin/support/tickets/${id}`);
+}
+
+export async function uploadAdminTicketAttachment(
+  ticketId: string,
+  input: { contentType: string; dataBase64: string; filename?: string },
+) {
+  return adminApi<{
+    url: string;
+    path: string;
+    bytes: number;
+    filename: string;
+  }>(`/v1/admin/support/tickets/${ticketId}/attachments`, {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
 }
 
 export async function updateAdminTicket(
   id: string,
-  input: { status?: string; adminNote?: string; reply?: string; assignee?: string },
+  input: {
+    status?: string;
+    adminNote?: string;
+    reply?: string;
+    assignee?: string;
+    attachmentUrl?: string;
+    attachmentName?: string;
+  },
 ) {
   return adminApi<unknown>(`/v1/admin/support/tickets/${id}`, {
     method: "PATCH",
