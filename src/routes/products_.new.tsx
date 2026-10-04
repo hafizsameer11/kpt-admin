@@ -580,7 +580,7 @@ function CreateProductPage() {
       ) : null}
 
       <Dialog open={uploadOpen} onOpenChange={setUploadOpen}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-md">
           <DialogHeader>
             <DialogTitle>{replaceId ? "Replace document" : "Upload document"}</DialogTitle>
             <DialogDescription>
@@ -588,19 +588,19 @@ function CreateProductPage() {
               Kipit storage — they are not stored as base64 in the form.
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-3">
+          <div className="min-w-0 space-y-3">
             <Field label="File">
               <input
                 type="file"
                 accept=".pdf,application/pdf,image/jpeg,image/png,image/webp"
                 disabled={docUploading}
                 onChange={(e) => void handleDocFile(e)}
-                className="w-full rounded-lg border border-border bg-background px-3 py-2 text-[13px] file:mr-3 file:rounded-md file:border-0 file:bg-brand/10 file:px-2.5 file:py-1 file:text-[12px] file:font-bold file:text-brand disabled:opacity-50"
+                className="block w-full min-w-0 max-w-full rounded-lg border border-border bg-background px-3 py-2 text-[13px] file:mr-3 file:rounded-md file:border-0 file:bg-brand/10 file:px-2.5 file:py-1 file:text-[12px] file:font-bold file:text-brand disabled:opacity-50"
               />
               {docUploading ? (
                 <p className="mt-1.5 text-[12px] text-muted-foreground">Uploading…</p>
               ) : docUrl && !/^data:/i.test(docUrl) ? (
-                <p className="mt-1.5 truncate text-[12px] text-emerald-700">Ready · {docUrl}</p>
+                <p className="mt-1.5 break-all text-[12px] text-emerald-700">Ready · {docUrl}</p>
               ) : null}
             </Field>
             <Field label="File name">
@@ -608,14 +608,14 @@ function CreateProductPage() {
                 value={docName}
                 onChange={(e) => setDocName(e.target.value)}
                 placeholder="term-sheet-v1"
-                className="w-full rounded-lg border border-border bg-background px-3 py-2.5 text-[13.5px] outline-none focus:border-brand"
+                className="w-full min-w-0 max-w-full rounded-lg border border-border bg-background px-3 py-2.5 text-[13.5px] outline-none focus:border-brand"
               />
             </Field>
             <Field label="Document type">
               <select
                 value={docKind}
                 onChange={(e) => setDocKind(e.target.value as ProductDoc["kind"])}
-                className="w-full rounded-lg border border-border bg-background px-3 py-2.5 text-[13.5px] outline-none focus:border-brand"
+                className="w-full min-w-0 max-w-full rounded-lg border border-border bg-background px-3 py-2.5 text-[13.5px] outline-none focus:border-brand"
               >
                 {DOC_KINDS.map((k) => (
                   <option key={k}>{k}</option>
@@ -628,7 +628,7 @@ function CreateProductPage() {
                 onChange={(e) => setDocUrl(e.target.value)}
                 placeholder="https://…"
                 disabled={docUploading}
-                className="w-full rounded-lg border border-border bg-background px-3 py-2.5 text-[13.5px] outline-none focus:border-brand disabled:opacity-50"
+                className="w-full min-w-0 max-w-full rounded-lg border border-border bg-background px-3 py-2.5 text-[13.5px] outline-none focus:border-brand disabled:opacity-50"
               />
             </Field>
           </div>
@@ -736,7 +736,7 @@ function Field({
   className?: string;
 }) {
   return (
-    <label className={`block ${className}`}>
+    <label className={`block min-w-0 max-w-full ${className}`}>
       <span className="mb-1.5 flex items-center justify-between text-[11px] font-bold uppercase tracking-[0.12em] text-muted-foreground">
         {label}
         {helper ? <span className="normal-case tracking-normal">{helper}</span> : null}

@@ -340,6 +340,26 @@ function rateBandProductLabel(code: string): string {
   return "Kipit Fixed";
 }
 
+/** Naira minimums by band code — same table as GET /v1/invest/rates. */
+const BAND_MINIMUM_NAIRA: Record<string, number> = {
+  CALL: 5_000,
+  "1-90": 10_000,
+  "91-120": 50_000,
+  "121-180": 50_000,
+  "181-364": 100_000,
+  "365+": 250_000,
+};
+
+function minimumForRateBand(code: string, minDays: number): number {
+  const keyed = BAND_MINIMUM_NAIRA[code] ?? BAND_MINIMUM_NAIRA[code.toUpperCase()];
+  if (keyed != null) return keyed;
+  if (minDays <= 0) return 5_000;
+  if (minDays <= 90) return 10_000;
+  if (minDays <= 180) return 50_000;
+  if (minDays <= 364) return 100_000;
+  return 250_000;
+}
+
 export function mapRateBand(
   row: Awaited<ReturnType<typeof fetchAdminRates>>[number] & {
     placements?: number;
@@ -359,7 +379,7 @@ export function mapRateBand(
     previousRate: rate,
     effectiveDate: row.effectiveFrom.slice(0, 10),
     status: "active" as RateStatus,
-    minimum: 0,
+    minimum: minimumForRateBand(row.code, row.minDays),
     placements: row.placements ?? 0,
     principal: row.principal ?? 0,
     updatedBy: "—",
