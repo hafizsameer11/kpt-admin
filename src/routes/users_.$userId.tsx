@@ -307,7 +307,7 @@ function AdminUserProfile() {
                       description: created.subject,
                     });
                     void navigate({
-                      to: "/support_/$ticketId",
+                      to: "/support/$ticketId",
                       params: { ticketId: created.id },
                     });
                   })
