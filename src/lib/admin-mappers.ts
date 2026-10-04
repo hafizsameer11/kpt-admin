@@ -737,7 +737,7 @@ export function mapFeedCard(row: Awaited<ReturnType<typeof fetchAdminFeed>>[numb
     destination: row.href ?? "—",
     status,
     position: row.sortOrder,
-    impressions: 0,
+    impressions: row.impressions ?? 0,
     taps: 0,
     updatedBy: "—",
     updatedAt: "—",
