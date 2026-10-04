@@ -71,8 +71,12 @@ export const Route = createFileRoute("/support_/$ticketId")({
 type TeamAgent = { id: string; name: string; email: string; role: string };
 
 function isImageAttachment(url?: string | null, name?: string | null) {
-  const hay = `${url || ""} ${name || ""}`;
-  return /\.(jpe?g|png|webp|gif)(\?|#|$)/i.test(hay) || /\/uploads\/support\//i.test(url || "");
+  const hay = `${url || ""} ${name || ""}`.toLowerCase();
+  if (/\.pdf(\?|#|$)/i.test(hay)) return false;
+  if (/\.(jpe?g|png|webp|gif|heic|heif)(\?|#|$)/i.test(hay)) return true;
+  // Server-stored support uploads are image or pdf; treat non-pdf paths as images.
+  if (/\/uploads\/support\//i.test(hay) && !/\.pdf(\?|#|$)/i.test(hay)) return true;
+  return false;
 }
 
 /** Hide accidental pasted base64 / data-URLs so the page doesn't blow out. */
@@ -93,12 +97,46 @@ function TicketAttachment({
   url?: string | null;
   name?: string | null;
 }) {
-  const [failed, setFailed] = useState(false);
   const resolved = resolveAdminUploadUrl(url);
-  if (!resolved) return null;
-  const image = !failed && isImageAttachment(resolved, name);
+  const wantsImage = isImageAttachment(resolved, name);
+  const [displaySrc, setDisplaySrc] = useState<string | null>(wantsImage ? resolved : null);
+  const [failed, setFailed] = useState(false);
 
-  if (image) {
+  useEffect(() => {
+    if (!resolved || !wantsImage) return;
+    let cancelled = false;
+    let objectUrl: string | null = null;
+
+    setFailed(false);
+    setDisplaySrc(resolved);
+
+    // If the bare <img> is blocked (old CORP headers, odd host), pull bytes via fetch and show a blob URL.
+    void (async () => {
+      try {
+        const res = await fetch(resolved, { mode: "cors", cache: "force-cache" });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const blob = await res.blob();
+        if (cancelled) return;
+        if (!blob.type.startsWith("image/") && !isImageAttachment(resolved, name)) {
+          throw new Error("not an image");
+        }
+        objectUrl = URL.createObjectURL(blob);
+        setDisplaySrc(objectUrl);
+        setFailed(false);
+      } catch {
+        // Keep direct URL; <img onError> will mark failed if that also cannot load.
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
+  }, [resolved, wantsImage, name]);
+
+  if (!resolved) return null;
+
+  if (wantsImage && displaySrc && !failed) {
     return (
       <div className="mt-3 space-y-2">
         <a
@@ -108,9 +146,10 @@ function TicketAttachment({
           className="block max-w-md overflow-hidden rounded-xl border border-border bg-muted/30"
         >
           <img
-            src={resolved}
+            src={displaySrc}
             alt={name || "Attachment"}
-            className="max-h-64 w-full object-contain"
+            className="max-h-72 w-full bg-black/5 object-contain"
+            referrerPolicy="no-referrer"
             onError={() => setFailed(true)}
           />
         </a>
@@ -127,7 +166,7 @@ function TicketAttachment({
   }
 
   return (
-    <div className="mt-3">
+    <div className="mt-3 space-y-1.5">
       <a
         href={resolved}
         target="_blank"
@@ -137,6 +176,11 @@ function TicketAttachment({
         <Paperclip className="size-3.5 shrink-0" />
         {name || "View attachment"}
       </a>
+      {wantsImage ? (
+        <p className="text-[11.5px] text-muted-foreground">
+          Preview unavailable — open the file to view the image.
+        </p>
+      ) : null}
     </div>
   );
 }
