@@ -917,6 +917,7 @@ export async function fetchAdminFeed() {
       href: string | null;
       active: boolean;
       sortOrder: number;
+      impressions?: number;
     }[]
   >("/v1/admin/marketing/feed");
 }

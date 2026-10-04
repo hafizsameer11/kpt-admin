@@ -72,9 +72,9 @@ function FeedManagerPage() {
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
         <Stat label="Published cards" value={String(published)} helper="Live on app home" tone="brand" icon={LayoutList} />
         <Stat
-          label="Impressions (30d)"
-          value={`${(cards.reduce((a, c) => a + c.impressions, 0) / 1000).toFixed(1)}k`}
-          helper="Card views"
+          label="Impressions"
+          value={cards.reduce((a, c) => a + c.impressions, 0).toLocaleString("en-NG")}
+          helper="Unique accounts that opened home"
         />
         <Stat
           label="Taps (30d)"
