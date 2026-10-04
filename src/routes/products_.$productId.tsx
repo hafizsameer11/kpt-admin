@@ -679,7 +679,7 @@ function ProductDetailPage() {
       </Dialog>
 
       <Dialog open={uploadOpen} onOpenChange={setUploadOpen}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-md">
           <DialogHeader>
             <DialogTitle>{replaceId ? "Replace document" : "Add document"}</DialogTitle>
             <DialogDescription>
@@ -687,8 +687,8 @@ function ProductDetailPage() {
               storage so the page stays responsive.
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-3">
-            <label className="block">
+          <div className="min-w-0 space-y-3">
+            <label className="block min-w-0">
               <span className="mb-1.5 block text-[11px] font-bold uppercase tracking-[0.12em] text-muted-foreground">
                 File
               </span>
@@ -697,12 +697,12 @@ function ProductDetailPage() {
                 accept=".pdf,application/pdf,image/jpeg,image/png,image/webp"
                 disabled={docUploading}
                 onChange={(e) => void handleDocFile(e)}
-                className="w-full rounded-lg border border-border bg-background px-3 py-2 text-[13px] file:mr-3 file:rounded-md file:border-0 file:bg-brand/10 file:px-2.5 file:py-1 file:text-[12px] file:font-bold file:text-brand disabled:opacity-50"
+                className="block w-full min-w-0 max-w-full rounded-lg border border-border bg-background px-3 py-2 text-[13px] file:mr-3 file:rounded-md file:border-0 file:bg-brand/10 file:px-2.5 file:py-1 file:text-[12px] file:font-bold file:text-brand disabled:opacity-50"
               />
               {docUploading ? (
                 <p className="mt-1.5 text-[12px] text-muted-foreground">Uploading…</p>
               ) : docUrl && !/^data:/i.test(docUrl) ? (
-                <p className="mt-1.5 truncate text-[12px] text-emerald-700">Ready · {docUrl}</p>
+                <p className="mt-1.5 break-all text-[12px] text-emerald-700">Ready · {docUrl}</p>
               ) : null}
             </label>
             <label className="block">
@@ -713,17 +713,17 @@ function ProductDetailPage() {
                 value={docName}
                 onChange={(e) => setDocName(e.target.value)}
                 placeholder="term-sheet-v2"
-                className="w-full rounded-lg border border-border bg-background px-3 py-2.5 text-[13.5px] outline-none focus:border-brand"
+                className="w-full min-w-0 max-w-full rounded-lg border border-border bg-background px-3 py-2.5 text-[13.5px] outline-none focus:border-brand"
               />
             </label>
-            <label className="block">
+            <label className="block min-w-0">
               <span className="mb-1.5 block text-[11px] font-bold uppercase tracking-[0.12em] text-muted-foreground">
                 Document type
               </span>
               <select
                 value={docKind}
                 onChange={(e) => setDocKind(e.target.value as ProductDoc["kind"])}
-                className="w-full rounded-lg border border-border bg-background px-3 py-2.5 text-[13.5px] outline-none focus:border-brand"
+                className="w-full min-w-0 max-w-full rounded-lg border border-border bg-background px-3 py-2.5 text-[13.5px] outline-none focus:border-brand"
               >
                 {DOC_KINDS.map((k) => (
                   <option key={k}>{k}</option>
@@ -739,7 +739,7 @@ function ProductDetailPage() {
                 onChange={(e) => setDocUrl(e.target.value)}
                 placeholder="https://…"
                 disabled={docUploading}
-                className="w-full rounded-lg border border-border bg-background px-3 py-2.5 text-[13.5px] outline-none focus:border-brand disabled:opacity-50"
+                className="w-full min-w-0 max-w-full rounded-lg border border-border bg-background px-3 py-2.5 text-[13.5px] outline-none focus:border-brand disabled:opacity-50"
               />
             </label>
           </div>
