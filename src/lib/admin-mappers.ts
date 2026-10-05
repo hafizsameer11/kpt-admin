@@ -373,8 +373,23 @@ export function mapRateBand(
   },
 ): RateBand {
   const rate = row.rateBps / 100;
+  const previous =
+    row.previousBps != null ? row.previousBps / 100 : rate;
   const maxDays = row.maxDays ?? row.minDays;
   const band = rateBandTenorLabel(row.code, row.minDays, row.maxDays);
+  const status: RateStatus =
+    row.status === "scheduled" || row.scheduledBps != null ? "scheduled" : "active";
+  const history =
+    row.scheduledBps != null && row.scheduledFrom
+      ? [
+          {
+            rate: row.scheduledBps / 100,
+            effectiveDate: row.scheduledFrom,
+            by: "—",
+            note: "Approved — applies on effective date",
+          },
+        ]
+      : [];
   return {
     id: row.id,
     band,
@@ -382,14 +397,14 @@ export function mapRateBand(
     minDays: row.minDays,
     maxDays: maxDays,
     currentRate: rate,
-    previousRate: rate,
+    previousRate: previous,
     effectiveDate: row.effectiveFrom.slice(0, 10),
-    status: "active" as RateStatus,
+    status,
     minimum: minimumForRateBand(row.code, row.minDays),
     placements: row.placements ?? 0,
     principal: row.principal ?? 0,
     updatedBy: "—",
-    history: [],
+    history,
   };
 }
 
