@@ -306,10 +306,45 @@ export async function hydrateAdminRatesFromApi() {
     const { getAdminAccessToken } = await import("./admin-api");
     if (!getAdminAccessToken()) {
       liveRateBands = [];
+      liveRateRequests = [];
       return [];
     }
-    const { loadAdminRateBands } = await import("./admin-mappers");
-    liveRateBands = await loadAdminRateBands();
+    const { loadAdminRateBands, loadAdminRateRequests } = await import("./admin-mappers");
+    const [bands, requests] = await Promise.all([
+      loadAdminRateBands(),
+      loadAdminRateRequests().catch(() => [] as RateRequest[]),
+    ]);
+    liveRateRequests = requests;
+
+    const awaitingByBand = new Map(
+      requests
+        .filter((r) => r.status === "awaiting")
+        .map((r) => [r.bandId, r] as const),
+    );
+
+    liveRateBands = bands.map((band) => {
+      if (band.status === "pending" || band.status === "scheduled" || band.status === "retired") {
+        return band;
+      }
+      const awaiting = awaitingByBand.get(band.id);
+      if (!awaiting) return band;
+      return {
+        ...band,
+        status: "pending" as const,
+        previousRate: band.currentRate,
+        currentRate: awaiting.proposedRate,
+        effectiveDate: awaiting.effectiveDate || band.effectiveDate,
+        history: [
+          {
+            rate: awaiting.proposedRate,
+            effectiveDate: awaiting.effectiveDate,
+            by: awaiting.submittedBy,
+            note: "Awaiting second approver",
+          },
+          ...band.history,
+        ],
+      };
+    });
     return liveRateBands;
   } catch {
     liveRateBands = [];

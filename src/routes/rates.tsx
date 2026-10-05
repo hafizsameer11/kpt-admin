@@ -244,7 +244,13 @@ function RateTablePage() {
             </table>
             {rows.length === 0 ? (
               <p className="px-5 py-14 text-center text-[13px] text-muted-foreground">
-                No rate bands match this view.
+                {tab === "pending"
+                  ? "No bands awaiting approval. Open the approval queue if you expect a request."
+                  : tab === "scheduled"
+                    ? "No approved rate changes waiting on an effective date."
+                    : tab === "retired"
+                      ? "Retired bands are not used yet — all configured bands are live."
+                      : "No rate bands match this view."}
               </p>
             ) : null}
           </div>

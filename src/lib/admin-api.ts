@@ -440,7 +440,9 @@ export async function fetchAdminRates() {
       previousBps?: number | null;
       scheduledBps?: number | null;
       scheduledFrom?: string | null;
-      status?: "active" | "scheduled" | string;
+      pendingBps?: number | null;
+      pendingFrom?: string | null;
+      status?: "active" | "scheduled" | "pending" | string;
       placements?: number;
       principal?: number;
     }[]
