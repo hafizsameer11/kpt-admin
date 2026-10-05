@@ -431,13 +431,15 @@ export let FEATURE_FLAGS: FeatureFlag[] = [];
 export type MaintenanceSettings = {
   enabled: boolean;
   message: string;
-  window: string;
+  windowStart: string;
+  windowEnd: string;
 };
 
 export let MAINTENANCE_DEFAULT: MaintenanceSettings = {
   enabled: false,
   message: "",
-  window: "",
+  windowStart: "",
+  windowEnd: "",
 };
 
 export async function hydrateAdminSettingsFromApi() {
@@ -448,7 +450,7 @@ export async function hydrateAdminSettingsFromApi() {
       LIMIT_SETTINGS = [];
       CUTOFF_SETTINGS = [];
       FEATURE_FLAGS = [];
-      MAINTENANCE_DEFAULT = { enabled: false, message: "", window: "" };
+      MAINTENANCE_DEFAULT = { enabled: false, message: "", windowStart: "", windowEnd: "" };
       return null;
     }
     const data = await fetchAdminSettings();
@@ -459,7 +461,8 @@ export async function hydrateAdminSettingsFromApi() {
     MAINTENANCE_DEFAULT = {
       enabled: data.maintenance.enabled,
       message: data.maintenance.message,
-      window: MAINTENANCE_DEFAULT.window,
+      windowStart: data.maintenance.windowStart ?? "",
+      windowEnd: data.maintenance.windowEnd ?? "",
     };
     return data;
   } catch {
@@ -467,7 +470,7 @@ export async function hydrateAdminSettingsFromApi() {
     LIMIT_SETTINGS = [];
     CUTOFF_SETTINGS = [];
     FEATURE_FLAGS = [];
-    MAINTENANCE_DEFAULT = { enabled: false, message: "", window: "" };
+    MAINTENANCE_DEFAULT = { enabled: false, message: "", windowStart: "", windowEnd: "" };
     return null;
   }
 }

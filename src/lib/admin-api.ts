@@ -1350,7 +1350,12 @@ export type AdminSystemSettings = {
   limits: AdminFeeRow[];
   cutoffs: AdminFeeRow[];
   flags: AdminFeatureFlag[];
-  maintenance: { enabled: boolean; message: string };
+  maintenance: {
+    enabled: boolean;
+    message: string;
+    windowStart?: string | null;
+    windowEnd?: string | null;
+  };
   support: {
     phone: string;
     whatsapp: string;
