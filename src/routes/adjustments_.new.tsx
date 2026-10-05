@@ -515,11 +515,11 @@ function NewAdjustmentPage() {
                   type === "maturity-date"
                     ? toDateInputValue(newValue.trim())
                     : type === "rate"
-                      ? `${Number(newValue.trim()).toFixed(2)}%`
+                      ? String(Number(newValue.trim()))
                       : type === "tenor"
-                        ? `${newValue.trim()} days`
+                        ? String(Number(newValue.trim().replace(/[^\d]/g, "")))
                         : type === "principal"
-                          ? naira(Number(newValue.trim()) || 0)
+                          ? String(Number(newValue.trim().replace(/\D/g, "")) || 0)
                           : newValue.trim();
                 void (async () => {
                   try {
