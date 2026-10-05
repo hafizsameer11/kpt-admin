@@ -1232,15 +1232,43 @@ export async function fetchAdminFlowTrend() {
 }
 
 export async function fetchAdminInterestTrend() {
-  return adminApi<
-    { month: string; accrued: number; paid: number; accruedNaira?: number; paidNaira?: number }[]
+  const raw = await adminApi<
+    | {
+        scale?: { divisor: number; unit: string; label: string };
+        series: { month: string; accrued: number; paid: number; accruedNaira?: number; paidNaira?: number }[];
+      }
+    | { month: string; accrued: number; paid: number; accruedNaira?: number; paidNaira?: number }[]
   >("/v1/admin/dashboard/interest-trend");
+  if (Array.isArray(raw)) {
+    return {
+      scale: { divisor: 1_000_000, unit: "millions", label: "₦ millions" },
+      series: raw,
+    };
+  }
+  return {
+    scale: raw.scale ?? { divisor: 1_000_000, unit: "millions", label: "₦ millions" },
+    series: raw.series ?? [],
+  };
 }
 
 export async function fetchAdminMaturitySchedule() {
-  return adminApi<
-    { week: string; value: number; valueNaira?: number; from?: string; to?: string }[]
+  const raw = await adminApi<
+    | {
+        scale?: { divisor: number; unit: string; label: string };
+        series: { week: string; value: number; valueNaira?: number; from?: string; to?: string }[];
+      }
+    | { week: string; value: number; valueNaira?: number; from?: string; to?: string }[]
   >("/v1/admin/dashboard/maturity-schedule");
+  if (Array.isArray(raw)) {
+    return {
+      scale: { divisor: 1_000_000, unit: "millions", label: "₦ millions" },
+      series: raw,
+    };
+  }
+  return {
+    scale: raw.scale ?? { divisor: 1_000_000, unit: "millions", label: "₦ millions" },
+    series: raw.series ?? [],
+  };
 }
 
 export async function fetchAdminPrincipalByTenor() {
