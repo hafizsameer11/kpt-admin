@@ -181,6 +181,10 @@ export function mapAdminUserPlacement(
       : row.status.toLowerCase().includes("adjust")
         ? "adjusted"
         : "active";
+  const expected =
+    typeof row.expectedPayout === "number"
+      ? row.expectedPayout
+      : row.principal + (row.expectedInterest ?? 0);
   return {
     id: row.id,
     product: row.name,
@@ -188,7 +192,9 @@ export function mapAdminUserPlacement(
     rate: `${row.ratePct.toFixed(1)}%`,
     start: formatAdminDate(row.createdAt),
     maturity: row.maturityDate ? formatAdminDate(row.maturityDate) : "—",
-    expected: row.principal,
+    expected,
+    expectedInterest: row.expectedInterest ?? Math.max(0, expected - row.principal),
+    tenorDays: row.tenorDays ?? null,
     state,
   };
 }
