@@ -794,7 +794,7 @@ export async function updateAdminCampaign(
 
 export async function createAdminAdjustment(input: {
   placementId: string;
-  type: "principal" | "rate" | "tenor" | "maturity";
+  type: "principal" | "rate" | "tenor" | "maturity" | "payout" | "status";
   toValue: string;
   reason: string;
 }) {

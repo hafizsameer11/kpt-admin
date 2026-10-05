@@ -83,16 +83,105 @@ function toDateInputValue(raw: string) {
   return parsed.toISOString().slice(0, 10);
 }
 
+function isValidIsoDate(value: string) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const d = new Date(`${value}T00:00:00.000Z`);
+  return !Number.isNaN(d.getTime()) && d.toISOString().slice(0, 10) === value;
+}
+
+/** Returns an error message when the new value does not match the selected adjustment type. */
+function validateNewValue(
+  type: AdjustmentType,
+  raw: string,
+  investment?: AdjustableInvestment,
+): string | null {
+  const value = raw.trim();
+  if (!value) return "A new value is required.";
+
+  switch (type) {
+    case "rate": {
+      const n = Number(value);
+      if (!Number.isFinite(n) || n <= 0 || n > 100) {
+        return "Enter a rate between 0.01 and 100 (e.g. 16.00).";
+      }
+      return null;
+    }
+    case "tenor": {
+      const n = Number(value);
+      if (!Number.isInteger(n) || n < 1 || n > 3650) {
+        return "Enter tenor as whole days (e.g. 90).";
+      }
+      return null;
+    }
+    case "maturity-date": {
+      const date = toDateInputValue(value);
+      if (!isValidIsoDate(date)) {
+        return "Pick a maturity date in YYYY-MM-DD format.";
+      }
+      if (investment) {
+        const start = toDateInputValue(investment.startDate);
+        if (start && date < start) {
+          return "Maturity date must be on or after the plan start date.";
+        }
+      }
+      return null;
+    }
+    case "principal": {
+      const n = Number(value.replace(/\D/g, ""));
+      if (!Number.isFinite(n) || n < 1000) {
+        return "Enter a principal of at least ₦1,000.";
+      }
+      return null;
+    }
+    case "payout-frequency": {
+      if (!["WALLET", "ROLLOVER", "PAYOUT", "At maturity"].includes(value)) {
+        return "Select a payout option from the list.";
+      }
+      return null;
+    }
+    case "status": {
+      if (!["ACTIVE", "MATURED", "CLOSED"].includes(value)) {
+        return "Select a plan status from the list.";
+      }
+      return null;
+    }
+  }
+}
+
+function formatProposed(type: AdjustmentType, raw: string) {
+  const value = raw.trim();
+  if (!value) return "—";
+  if (type === "principal") return naira(Number(value.replace(/\D/g, "")) || 0);
+  if (type === "rate") return `${Number(value).toFixed(2)}%`;
+  if (type === "tenor") return `${value} days`;
+  if (type === "maturity-date") return toDateInputValue(value);
+  if (type === "payout-frequency") {
+    if (value === "WALLET") return "Wallet at maturity";
+    if (value === "ROLLOVER") return "Roll over";
+    if (value === "PAYOUT") return "Call Account";
+  }
+  return value;
+}
+
+function serializeToValue(type: AdjustmentType, raw: string) {
+  const value = raw.trim();
+  if (type === "maturity-date") return toDateInputValue(value);
+  if (type === "rate") return String(Number(value));
+  if (type === "tenor") return String(Number(value.replace(/[^\d]/g, "")));
+  if (type === "principal") return String(Number(value.replace(/\D/g, "")) || 0);
+  return value;
+}
+
 function newValuePlaceholder(type: AdjustmentType) {
   switch (type) {
     case "rate":
-      return "e.g. 18.50";
+      return "e.g. 16.00";
     case "tenor":
       return "e.g. 90";
     case "maturity-date":
       return "YYYY-MM-DD";
     case "principal":
-      return "e.g. 500000";
+      return "0";
     case "payout-frequency":
       return "Select frequency";
     case "status":
@@ -270,19 +359,12 @@ function NewAdjustmentPage() {
   );
 
   const before = currentValue(investment, type);
-  const proposedDisplay = (() => {
-    const raw = newValue.trim();
-    if (!raw) return "—";
-    if (type === "principal") return naira(Number(raw) || 0);
-    if (type === "rate") return `${Number(raw).toFixed(2)}%`;
-    if (type === "tenor") return `${raw} days`;
-    if (type === "maturity-date") return toDateInputValue(raw);
-    return raw;
-  })();
-  const valueError = touched && newValue.trim() === "";
+  const proposedDisplay = formatProposed(type, newValue);
+  const valueValidationError = validateNewValue(type, newValue, investment);
+  const valueError = touched ? valueValidationError : null;
   const reasonError = touched && reason.trim().length < 10;
   const canSubmit =
-    !!investment && newValue.trim() !== "" && reason.trim().length >= 10;
+    !!investment && !valueValidationError && reason.trim().length >= 10;
 
   return (
     <AdminShell
@@ -369,6 +451,7 @@ function NewAdjustmentPage() {
                   onClick={() => {
                     setType(t);
                     setNewValue("");
+                    setTouched(false);
                   }}
                   className={`rounded-lg border px-3 py-1.5 text-[12.5px] font-bold transition ${
                     type === t
@@ -398,13 +481,13 @@ function NewAdjustmentPage() {
                   type={type}
                   value={newValue}
                   onChange={setNewValue}
-                  invalid={valueError}
+                  invalid={Boolean(valueError)}
                   investment={investment}
                 />
                 <p className="mt-1 text-[11.5px] text-muted-foreground">{newValueHint(type)}</p>
                 {valueError ? (
                   <p className="mt-1 text-[11.5px] font-semibold text-destructive">
-                    A new value is required.
+                    {valueError}
                   </p>
                 ) : null}
               </div>
@@ -505,22 +588,23 @@ function NewAdjustmentPage() {
               type="button"
               onClick={() => {
                 if (!investment) return;
+                const validation = validateNewValue(type, newValue, investment);
+                if (validation) {
+                  setTouched(true);
+                  toast.error(validation);
+                  return;
+                }
                 const apiType =
                   type === "maturity-date"
                     ? "maturity"
-                    : type === "rate" || type === "tenor" || type === "principal"
-                      ? type
-                      : "rate";
-                const toValue =
-                  type === "maturity-date"
-                    ? toDateInputValue(newValue.trim())
-                    : type === "rate"
-                      ? String(Number(newValue.trim()))
-                      : type === "tenor"
-                        ? String(Number(newValue.trim().replace(/[^\d]/g, "")))
-                        : type === "principal"
-                          ? String(Number(newValue.trim().replace(/\D/g, "")) || 0)
-                          : newValue.trim();
+                    : type === "payout-frequency"
+                      ? "payout"
+                      : type === "status"
+                        ? "status"
+                        : type === "rate" || type === "tenor" || type === "principal"
+                          ? type
+                          : "rate";
+                const toValue = serializeToValue(type, newValue);
                 void (async () => {
                   try {
                     const { createAdminAdjustment } = await import("@/lib/admin-api");

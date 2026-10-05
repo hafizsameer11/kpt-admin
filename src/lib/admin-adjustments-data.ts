@@ -91,7 +91,38 @@ const TYPES: AdjustmentType[] = [
 ];
 
 function mapType(raw: string): AdjustmentType {
-  return TYPES.includes(raw as AdjustmentType) ? (raw as AdjustmentType) : "rate";
+  if (raw === "maturity" || raw === "maturity-date") return "maturity-date";
+  if (raw === "payout" || raw === "payout-frequency") return "payout-frequency";
+  if (raw === "status") return "status";
+  if (raw === "rate" || raw === "tenor" || raw === "principal") return raw;
+  return "rate";
+}
+
+function formatListedValue(type: AdjustmentType, raw: string) {
+  const value = String(raw ?? "").trim();
+  if (!value) return "—";
+  if (type === "rate") {
+    const n = Number(value.replace(/%/g, "").trim());
+    return Number.isFinite(n) ? `${n.toFixed(2)}%` : value;
+  }
+  if (type === "tenor") {
+    const n = Number(value.replace(/days/gi, "").trim());
+    return Number.isFinite(n) ? `${n} days` : value;
+  }
+  if (type === "principal") {
+    const n = Number(value.replace(/[₦,\s]/g, ""));
+    return Number.isFinite(n) ? `₦${n.toLocaleString("en-NG")}` : value;
+  }
+  if (type === "maturity-date") {
+    const match = value.match(/^(\d{4}-\d{2}-\d{2})/);
+    return match?.[1] ?? value;
+  }
+  if (type === "payout-frequency") {
+    if (value === "WALLET") return "Wallet at maturity";
+    if (value === "ROLLOVER") return "Roll over";
+    if (value === "PAYOUT") return "Call Account";
+  }
+  return value;
 }
 
 function mapStatus(raw: string): AdjustmentStatus {
@@ -115,8 +146,8 @@ export async function hydrateAdminAdjustmentsFromApi() {
       product: r.product,
       reference: r.reference,
       type: mapType(r.type),
-      previous: r.previous,
-      proposed: r.proposed,
+      previous: formatListedValue(mapType(r.type), r.previous),
+      proposed: formatListedValue(mapType(r.type), r.proposed),
       reason: r.reason,
       submittedBy: r.submittedBy,
       submittedAt: r.submittedAt,
