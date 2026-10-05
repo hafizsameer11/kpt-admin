@@ -300,7 +300,7 @@ export const REFERRAL_RULES: ReferralRule[] = [
   { id: "rr-cap", label: "Monthly cap per customer", helper: "Maximum rewarded referrals per inviter each month", value: "10", kind: "count" },
 ];
 
-export const REFERRAL_PROGRAMME = {
+export let REFERRAL_PROGRAMME = {
   enabled: true,
   requiresKyc: true,
   payoutDestination: "Kipit wallet",
@@ -319,25 +319,77 @@ export let REFERRAL_LEADERS: {
   rewarded: number;
 }[] = [];
 
-export const REFERRAL_CHANGE_LOG: { at: string; by: string; change: string; status: string }[] = [];
+export let REFERRAL_CHANGE_LOG: { at: string; by: string; change: string; status: string }[] = [];
 
-export async function hydrateAdminReferralsFromApi() {
+export type ReferralProgrammeHydration = {
+  enabled: boolean;
+  requiresKyc: boolean;
+  rules: Record<string, string>;
+  stats: typeof REFERRAL_PROGRAMME;
+  leaders: typeof REFERRAL_LEADERS;
+  changeLog: typeof REFERRAL_CHANGE_LOG;
+};
+
+export async function hydrateAdminReferralsFromApi(): Promise<ReferralProgrammeHydration> {
+  const defaultRules = Object.fromEntries(REFERRAL_RULES.map((r) => [r.id, r.value]));
+  const fallback: ReferralProgrammeHydration = {
+    enabled: REFERRAL_PROGRAMME.enabled,
+    requiresKyc: REFERRAL_PROGRAMME.requiresKyc,
+    rules: defaultRules,
+    stats: { ...REFERRAL_PROGRAMME },
+    leaders: [...REFERRAL_LEADERS],
+    changeLog: [...REFERRAL_CHANGE_LOG],
+  };
   try {
-    const { getAdminAccessToken, fetchAdminReferralStats } = await import("./admin-api");
-    if (!getAdminAccessToken()) return REFERRAL_PROGRAMME;
-    const data = await fetchAdminReferralStats();
-    REFERRAL_PROGRAMME.invitesSent = data.invitesSent;
-    REFERRAL_PROGRAMME.invitesQualified = data.invitesQualified;
-    REFERRAL_PROGRAMME.rewardsPaid = data.rewardsPaid;
-    REFERRAL_PROGRAMME.pendingApproval = data.pendingApproval;
-    REFERRAL_LEADERS = data.leaders.map((l) => ({
-      name: l.name,
-      invites: l.invites,
-      qualified: l.qualified,
-      rewarded: l.rewarded,
-    }));
-    return { ...REFERRAL_PROGRAMME };
+    const { getAdminAccessToken, fetchAdminReferralStats, fetchAdminReferralProgramme } =
+      await import("./admin-api");
+    if (!getAdminAccessToken()) return fallback;
+
+    const [stats, programme] = await Promise.all([
+      fetchAdminReferralStats().catch(() => null),
+      fetchAdminReferralProgramme().catch(() => null),
+    ]);
+
+    if (stats) {
+      REFERRAL_PROGRAMME.invitesSent = stats.invitesSent;
+      REFERRAL_PROGRAMME.invitesQualified = stats.invitesQualified;
+      REFERRAL_PROGRAMME.rewardsPaid = stats.rewardsPaid;
+      REFERRAL_PROGRAMME.pendingApproval = stats.pendingApproval;
+      REFERRAL_LEADERS = stats.leaders.map((l) => ({
+        name: l.name,
+        invites: l.invites,
+        qualified: l.qualified,
+        rewarded: l.rewarded,
+      }));
+    }
+
+    if (programme) {
+      REFERRAL_PROGRAMME.enabled = programme.enabled;
+      REFERRAL_PROGRAMME.requiresKyc = programme.requiresKyc;
+      REFERRAL_PROGRAMME.updatedAt = programme.updatedAt
+        ? new Date(programme.updatedAt).toLocaleString("en-NG")
+        : "—";
+      REFERRAL_PROGRAMME.updatedBy = programme.updatedBy ?? "—";
+      for (const rule of REFERRAL_RULES) {
+        if (programme.rules?.[rule.id] != null) rule.value = String(programme.rules[rule.id]);
+      }
+      REFERRAL_CHANGE_LOG = (programme.changeLog ?? []).map((c) => ({
+        at: c.at,
+        by: c.by,
+        change: c.change,
+        status: c.status,
+      }));
+    }
+
+    return {
+      enabled: REFERRAL_PROGRAMME.enabled,
+      requiresKyc: REFERRAL_PROGRAMME.requiresKyc,
+      rules: Object.fromEntries(REFERRAL_RULES.map((r) => [r.id, r.value])),
+      stats: { ...REFERRAL_PROGRAMME },
+      leaders: [...REFERRAL_LEADERS],
+      changeLog: [...REFERRAL_CHANGE_LOG],
+    };
   } catch {
-    return { ...REFERRAL_PROGRAMME };
+    return fallback;
   }
 }
