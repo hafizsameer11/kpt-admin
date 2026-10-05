@@ -453,6 +453,7 @@ export async function fetchAdminRateRequests() {
       id: string;
       bandId: string;
       band: string;
+      code?: string;
       currentBps?: number;
       proposedBps?: number;
       currentRate?: number;
