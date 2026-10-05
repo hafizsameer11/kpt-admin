@@ -673,7 +673,7 @@ export function mapSupportTicket(
     ref: row.id.slice(0, 8).toUpperCase(),
     subject: row.subject,
     category: mapTicketCategory(row.category),
-    priority: "normal" as TicketPriority,
+    priority: mapTicketPriority(row.priority),
     status: mapTicketStatus(row.status),
     createdAt: formatAdminDateTime(row.createdAt),
     updatedAt: formatAdminDateTime(row.updatedAt),
@@ -698,6 +698,12 @@ export function mapSupportTicket(
     transactions: [],
     history: [{ at: formatAdminDateTime(row.createdAt), label: "Ticket opened", by: customerName }],
   };
+}
+
+function mapTicketPriority(raw?: string | null): TicketPriority {
+  const p = String(raw ?? "normal").toLowerCase();
+  if (p === "urgent" || p === "high" || p === "low") return p;
+  return "normal";
 }
 
 export function mapUserSupportTicket(row: SupportTicket): AdminTicket {
