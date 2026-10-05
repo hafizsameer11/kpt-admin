@@ -173,6 +173,8 @@ export type AdminInvestment = {
   start: string;
   maturity: string;
   expected: number;
+  expectedInterest?: number;
+  tenorDays?: number | null;
   state: "active" | "matured" | "adjusted";
   note?: string;
 };

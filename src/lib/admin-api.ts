@@ -303,10 +303,30 @@ export async function fetchAdminUserPlacements(userId: string) {
       status: string;
       principal: number;
       ratePct: number;
+      tenorDays?: number | null;
+      expectedInterest?: number;
+      expectedPayout?: number;
       maturityDate: string | null;
       createdAt: string;
     }[]
   >(`/v1/admin/users/${userId}/placements`);
+}
+
+/** Early-mature an active placement with full tenor interest. */
+export async function matureAdminPlacement(userId: string, placementId: string) {
+  return adminApi<{
+    id: string;
+    name: string;
+    principal: number;
+    interest: number;
+    payout: number;
+    early: boolean;
+    daysHeld: number;
+    tenorDays: number;
+  }>(`/v1/admin/users/${userId}/placements/${placementId}/mature`, {
+    method: "POST",
+    body: JSON.stringify({}),
+  });
 }
 
 export async function fetchAdminUserSessions(userId: string) {

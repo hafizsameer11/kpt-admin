@@ -4,7 +4,7 @@ import { toast } from "sonner";
 
 import { Panel } from "@/components/kipit/AdminBits";
 import { naira } from "@/lib/admin-data";
-import { AdminApiError, createAdminPlacement } from "@/lib/admin-api";
+import { AdminApiError, createAdminPlacement, matureAdminPlacement } from "@/lib/admin-api";
 import { loadAdminUserPlacements } from "@/lib/admin-mappers";
 import { type AdminInvestment } from "@/lib/admin-users-data";
 import {
@@ -30,6 +30,7 @@ function Investments() {
   const { userId } = Route.useParams();
   const [rows, setRows] = useState<AdminInvestment[]>([]);
   const [open, setOpen] = useState<AdminInvestment | null>(null);
+  const [confirmMature, setConfirmMature] = useState<AdminInvestment | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
   const [kind, setKind] = useState<"FIXED" | "CALL">("FIXED");
   const [amount, setAmount] = useState("");
@@ -37,6 +38,7 @@ function Investments() {
   const [name, setName] = useState("Fixed plan");
   const [debitWallet, setDebitWallet] = useState(true);
   const [busy, setBusy] = useState(false);
+  const [maturing, setMaturing] = useState(false);
 
   const resetCreateForm = () => {
     setKind("FIXED");
@@ -79,6 +81,24 @@ function Investments() {
       toast.error(err instanceof AdminApiError ? err.message : "Could not create investment");
     } finally {
       setBusy(false);
+    }
+  };
+
+  const matureNow = async () => {
+    if (!confirmMature || maturing) return;
+    setMaturing(true);
+    try {
+      const result = await matureAdminPlacement(userId, confirmMature.id);
+      toast.success(
+        `Matured ${result.name} — ${naira(result.payout)} to wallet (interest ${naira(result.interest)})`,
+      );
+      setConfirmMature(null);
+      setOpen(null);
+      reload();
+    } catch (err) {
+      toast.error(err instanceof AdminApiError ? err.message : "Could not mature investment");
+    } finally {
+      setMaturing(false);
     }
   };
 
@@ -153,13 +173,73 @@ function Investments() {
             <DialogDescription>Investment detail.</DialogDescription>
           </DialogHeader>
           {open ? (
+            <>
+              <ul className="divide-y divide-border/70 text-[13px]">
+                {[
+                  ["Principal", naira(open.principal)],
+                  ["Rate", open.rate],
+                  ["Start date", open.start],
+                  ["Maturity", open.maturity],
+                  ["Full interest", naira(open.expectedInterest ?? Math.max(0, open.expected - open.principal))],
+                  ["Expected payout", naira(open.expected)],
+                  ["Status", open.state],
+                ].map(([k, v]) => (
+                  <li key={String(k)} className="flex justify-between gap-4 py-2.5">
+                    <span className="text-muted-foreground">{k}</span>
+                    <span className="font-bold capitalize">{v}</span>
+                  </li>
+                ))}
+              </ul>
+              {open.state === "active" ? (
+                <DialogFooter className="mt-2 sm:justify-between">
+                  <p className="max-w-[14rem] text-[11.5px] text-muted-foreground">
+                    Mature now pays full tenor interest even if days held are short. One maturity credit in history.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => setConfirmMature(open)}
+                    className="inline-flex h-10 items-center rounded-lg bg-brand px-4 text-[13px] font-bold text-primary-foreground"
+                  >
+                    Mature now
+                  </button>
+                </DialogFooter>
+              ) : null}
+            </>
+          ) : null}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={!!confirmMature}
+        onOpenChange={(v) => {
+          if (!v && !maturing) setConfirmMature(null);
+        }}
+      >
+        <DialogContent className="sm:max-w-[26rem]">
+          <DialogHeader>
+            <DialogTitle>Mature this investment now?</DialogTitle>
+            <DialogDescription>
+              Settles immediately with full profit for the original tenor. Customer wallet gets one maturity
+              credit (principal + interest).
+            </DialogDescription>
+          </DialogHeader>
+          {confirmMature ? (
             <ul className="divide-y divide-border/70 text-[13px]">
               {[
-                ["Principal", naira(open.principal)],
-                ["Rate", open.rate],
-                ["Start date", open.start],
-                ["Maturity", open.maturity],
-                ["Expected", naira(open.expected)],
+                ["Product", confirmMature.product],
+                ["Principal", naira(confirmMature.principal)],
+                [
+                  "Full interest",
+                  naira(
+                    confirmMature.expectedInterest ??
+                      Math.max(0, confirmMature.expected - confirmMature.principal),
+                  ),
+                ],
+                ["Payout to wallet", naira(confirmMature.expected)],
+                [
+                  "Tenor",
+                  confirmMature.tenorDays != null ? `${confirmMature.tenorDays} days` : "—",
+                ],
               ].map(([k, v]) => (
                 <li key={String(k)} className="flex justify-between gap-4 py-2.5">
                   <span className="text-muted-foreground">{k}</span>
@@ -168,6 +248,24 @@ function Investments() {
               ))}
             </ul>
           ) : null}
+          <DialogFooter>
+            <button
+              type="button"
+              disabled={maturing}
+              onClick={() => setConfirmMature(null)}
+              className="inline-flex h-10 items-center rounded-lg border border-border px-4 text-[13px] font-bold disabled:opacity-50"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              disabled={maturing}
+              onClick={() => void matureNow()}
+              className="inline-flex h-10 items-center rounded-lg bg-brand px-4 text-[13px] font-bold text-primary-foreground disabled:opacity-50"
+            >
+              {maturing ? "Maturing…" : "Confirm mature"}
+            </button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 
