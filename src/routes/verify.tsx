@@ -1,5 +1,5 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { KeyRound, Mail, RefreshCw } from "lucide-react";
+import { KeyRound, RefreshCw, Smartphone } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import {
   AdminAuthShell,
@@ -16,6 +16,7 @@ import {
   AdminApiError,
   adminResendLoginOtp,
   adminVerifyLoginOtp,
+  getAdminMfaMethod,
   getAdminMfaToken,
 } from "@/lib/admin-api";
 
@@ -23,9 +24,12 @@ export const Route = createFileRoute("/verify")({
   head: () => ({
     meta: [
       { title: "Two-factor verification — Kipit console" },
-      { name: "description", content: "Confirm the 6-digit code emailed to you to open the Kipit admin console." },
+      {
+        name: "description",
+        content: "Confirm the 6-digit authenticator code to open the Kipit admin console.",
+      },
       { property: "og:title", content: "Two-factor verification — Kipit console" },
-      { property: "og:description", content: "Confirm your email verification code to continue." },
+      { property: "og:description", content: "Confirm your authenticator code to continue." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
       { name: "robots", content: "noindex" },
@@ -41,9 +45,11 @@ function AdminVerify() {
   const [busy, setBusy] = useState(false);
   const [seconds, setSeconds] = useState(45);
   const [debugHint, setDebugHint] = useState<string | null>(() => takePendingDebugOtp());
+  const [method] = useState(() => getAdminMfaMethod());
   const inputs = useRef<Array<HTMLInputElement | null>>([]);
   const email = getPendingAdminEmail();
   const code = digits.join("");
+  const isTotp = method === "totp";
 
   useEffect(() => {
     if (!getAdminMfaToken()) {
@@ -52,10 +58,10 @@ function AdminVerify() {
   }, [navigate]);
 
   useEffect(() => {
-    if (seconds <= 0) return;
+    if (isTotp || seconds <= 0) return;
     const t = setTimeout(() => setSeconds((s) => s - 1), 1000);
     return () => clearTimeout(t);
-  }, [seconds]);
+  }, [seconds, isTotp]);
 
   const setDigit = (index: number, value: string) => {
     const clean = value.replace(/\D/g, "").slice(-1);
@@ -85,7 +91,9 @@ function AdminVerify() {
       const message =
         err instanceof AdminApiError
           ? err.message
-          : "That code isn't valid. Check your email and try again.";
+          : isTotp
+            ? "That code isn't valid. Check your authenticator app and try again."
+            : "That code isn't valid. Check your email and try again.";
       setError(message);
       setDigits(Array(6).fill(""));
       inputs.current[0]?.focus();
@@ -98,7 +106,7 @@ function AdminVerify() {
   };
 
   const resend = async () => {
-    if (seconds > 0 || busy) return;
+    if (isTotp || seconds > 0 || busy) return;
     setBusy(true);
     setError(null);
     try {
@@ -118,7 +126,11 @@ function AdminVerify() {
   return (
     <AdminAuthShell
       title="Two-factor verification"
-      subtitle={`Enter the 6-digit code we emailed to ${email}.`}
+      subtitle={
+        isTotp
+          ? `Open Google Authenticator and enter the 6-digit code for ${email}.`
+          : `Enter the 6-digit code we emailed to ${email}.`
+      }
       footer={
         <button
           type="button"
@@ -130,8 +142,17 @@ function AdminVerify() {
       }
     >
       <div className="mb-5 flex items-center gap-2.5 rounded-xl border border-white/12 bg-white/5 p-3 text-[12px] text-brand-foreground/70">
-        <Mail className="size-4 shrink-0 text-gold" />
-        <p>Check your inbox (and spam) for the Kipit admin sign-in code.</p>
+        {isTotp ? (
+          <>
+            <Smartphone className="size-4 shrink-0 text-gold" />
+            <p>Codes refresh every 30 seconds in your authenticator app. No email is sent.</p>
+          </>
+        ) : (
+          <>
+            <KeyRound className="size-4 shrink-0 text-gold" />
+            <p>Check your inbox (and spam) for the Kipit admin sign-in code.</p>
+          </>
+        )}
       </div>
 
       <div className="flex justify-between gap-2">
@@ -162,18 +183,20 @@ function AdminVerify() {
         <AdminPrimaryButton disabled={code.length < 6 || busy} onClick={() => void submit()}>
           {busy ? "Verifying…" : "Verify and open console"}
         </AdminPrimaryButton>
-        <button
-          type="button"
-          disabled={seconds > 0 || busy}
-          onClick={() => void resend()}
-          className="flex w-full items-center justify-center gap-2 rounded-xl border border-white/20 px-5 py-3 text-[13px] font-semibold transition hover:bg-white/10 disabled:opacity-50"
-        >
-          <RefreshCw className="size-4" />
-          {seconds > 0 ? `Resend code in ${seconds}s` : "Send a new code"}
-        </button>
+        {!isTotp ? (
+          <button
+            type="button"
+            disabled={seconds > 0 || busy}
+            onClick={() => void resend()}
+            className="flex w-full items-center justify-center gap-2 rounded-xl border border-white/20 px-5 py-3 text-[13px] font-semibold transition hover:bg-white/10 disabled:opacity-50"
+          >
+            <RefreshCw className="size-4" />
+            {seconds > 0 ? `Resend code in ${seconds}s` : "Send a new code"}
+          </button>
+        ) : null}
       </div>
 
-      {debugHint ? (
+      {debugHint && !isTotp ? (
         <p className="mt-5 flex items-center gap-1.5 text-[11px] text-brand-foreground/50">
           <KeyRound className="size-3.5" /> Dev OTP — {debugHint}
         </p>

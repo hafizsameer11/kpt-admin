@@ -19,10 +19,13 @@ import { endAdminSession, getAdminSession } from "@/lib/admin-auth";
 import {
   AdminApiError,
   changeAdminPassword,
+  confirmAdminTotp,
+  disableAdminTotp,
   fetchAdminMe,
   fetchAdminUnlockPinStatus,
   patchAdminMe,
   setAdminUnlockPin,
+  setupAdminTotp,
 } from "@/lib/admin-api";
 import { hydrateAdminAuditFromApi, getLiveAuditLog } from "@/lib/admin-team-data";
 import {
@@ -105,6 +108,17 @@ function AdminProfilePage() {
   const [pwOpen, setPwOpen] = useState(false);
   const [pinOpen, setPinOpen] = useState(false);
   const [twoFaOpen, setTwoFaOpen] = useState(false);
+  const [totpEnabled, setTotpEnabled] = useState(false);
+  const [totpSetup, setTotpSetup] = useState<{
+    secretDisplay: string;
+    otpauthUrl: string;
+    replacing: boolean;
+  } | null>(null);
+  const [totpCode, setTotpCode] = useState("");
+  const [totpPassword, setTotpPassword] = useState("");
+  const [totpError, setTotpError] = useState("");
+  const [totpBusy, setTotpBusy] = useState(false);
+  const [totpMode, setTotpMode] = useState<"setup" | "disable">("setup");
   const [hasPin, setHasPin] = useState(false);
   const [current, setCurrent] = useState("");
   const [next, setNext] = useState("");
@@ -129,6 +143,7 @@ function AdminProfilePage() {
         setRole(me.role);
         setEmail(me.email);
         setPhone(me.phone ?? "");
+        setTotpEnabled(Boolean(me.totpEnabled));
         if (me.alertPrefs) {
           setPrefs({ ...DEFAULT_PREFS, ...me.alertPrefs });
         }
@@ -197,7 +212,9 @@ function AdminProfilePage() {
                 <p className="text-[11px] font-semibold uppercase tracking-wider text-primary-foreground/55">
                   Two-factor
                 </p>
-                <p className="mt-1 font-display text-[18px] font-extrabold">Authenticator app</p>
+                <p className="mt-1 font-display text-[18px] font-extrabold">
+                  {totpEnabled ? "Authenticator on" : "Not set up"}
+                </p>
               </div>
             </div>
           </section>
@@ -259,9 +276,37 @@ function AdminProfilePage() {
               <SecurityRow
                 icon={Smartphone}
                 title="Two-factor device"
-                helper="Email OTP temporarily disabled"
-                action="Replace device"
-                onClick={() => setTwoFaOpen(true)}
+                helper={
+                  totpEnabled
+                    ? "Google Authenticator (or any TOTP app) is required at sign-in"
+                    : "Set up Google Authenticator to protect console sign-in"
+                }
+                action={totpEnabled ? "Replace / manage" : "Set up authenticator"}
+                onClick={() => {
+                  setTotpError("");
+                  setTotpCode("");
+                  setTotpPassword("");
+                  setTotpSetup(null);
+                  setTotpMode("setup");
+                  setTwoFaOpen(true);
+                  setTotpBusy(true);
+                  void setupAdminTotp()
+                    .then((setup) => {
+                      setTotpSetup({
+                        secretDisplay: setup.secretDisplay,
+                        otpauthUrl: setup.otpauthUrl,
+                        replacing: setup.replacing,
+                      });
+                    })
+                    .catch((err) => {
+                      setTotpError(
+                        err instanceof AdminApiError
+                          ? err.message
+                          : "Could not start authenticator setup",
+                      );
+                    })
+                    .finally(() => setTotpBusy(false));
+                }}
               />
               <SecurityRow
                 icon={LogOut}
@@ -550,51 +595,190 @@ function AdminProfilePage() {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={twoFaOpen} onOpenChange={setTwoFaOpen}>
+      <Dialog
+        open={twoFaOpen}
+        onOpenChange={(open) => {
+          setTwoFaOpen(open);
+          if (!open) {
+            setTotpSetup(null);
+            setTotpCode("");
+            setTotpPassword("");
+            setTotpError("");
+            setTotpMode("setup");
+          }
+        }}
+      >
         <DialogContent className="sm:max-w-[26rem]">
           <DialogHeader>
-            <DialogTitle>Replace two-factor device</DialogTitle>
+            <DialogTitle>
+              {totpMode === "disable"
+                ? "Turn off authenticator"
+                : totpSetup?.replacing
+                  ? "Replace authenticator"
+                  : "Set up authenticator"}
+            </DialogTitle>
             <DialogDescription>
-              Enter the setup key in your authenticator app (or scan the QR), then enter the 6-digit
-              code it shows.
+              {totpMode === "disable"
+                ? "Enter your console password and a current 6-digit code to disable 2FA."
+                : "Scan the QR in Google Authenticator (or Authy), then enter the 6-digit code to confirm."}
             </DialogDescription>
           </DialogHeader>
-          <div className="rounded-xl border border-dashed border-border bg-muted/40 p-4 text-center">
-            <img
-              src={`https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${encodeURIComponent(
-                "otpauth://totp/Kipit%20Admin:operator?secret=KPIT4RQ28LMD91XZ&issuer=Kipit%20Admin",
-              )}`}
-              alt="Authenticator QR code"
-              width={160}
-              height={160}
-              className="mx-auto rounded-lg bg-white p-2"
-            />
-            <p className="mt-3 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
-              Setup key
-            </p>
-            <p className="mt-1 font-mono text-[15px] font-bold tracking-[0.16em]">
-              KPIT 4RQ2 8LMD 91XZ
-            </p>
-          </div>
-          <div className="mt-3 flex justify-end gap-2">
-            <button
-              type="button"
-              onClick={() => setTwoFaOpen(false)}
-              className="rounded-lg border border-border px-3.5 py-2 text-[13px] font-bold transition hover:bg-muted"
-            >
-              Cancel
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setTwoFaOpen(false);
-                toast.success("Two-factor device replaced");
-              }}
-              className="rounded-lg bg-brand px-3.5 py-2 text-[13px] font-bold text-primary-foreground transition hover:opacity-90"
-            >
-              Confirm device
-            </button>
-          </div>
+
+          {totpMode === "setup" ? (
+            <>
+              {totpBusy && !totpSetup ? (
+                <p className="py-6 text-center text-[13px] text-muted-foreground">Generating setup…</p>
+              ) : totpSetup ? (
+                <div className="rounded-xl border border-dashed border-border bg-muted/40 p-4 text-center">
+                  <img
+                    src={`https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${encodeURIComponent(
+                      totpSetup.otpauthUrl,
+                    )}`}
+                    alt="Authenticator QR code"
+                    width={160}
+                    height={160}
+                    className="mx-auto rounded-lg bg-white p-2"
+                  />
+                  <p className="mt-3 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+                    Setup key
+                  </p>
+                  <p className="mt-1 font-mono text-[14px] font-bold tracking-[0.12em]">
+                    {totpSetup.secretDisplay}
+                  </p>
+                </div>
+              ) : null}
+
+              <label className="mt-3 block">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+                  6-digit code from app
+                </span>
+                <input
+                  value={totpCode}
+                  onChange={(e) => setTotpCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                  inputMode="numeric"
+                  autoComplete="one-time-code"
+                  placeholder="123456"
+                  className="mt-1 w-full rounded-lg border border-border bg-card px-3 py-2 font-mono text-[15px] font-bold tracking-[0.2em] outline-none focus:border-brand"
+                />
+              </label>
+              {totpError ? <p className="mt-2 text-[12px] text-destructive">{totpError}</p> : null}
+
+              <div className="mt-3 flex flex-wrap justify-end gap-2">
+                {totpEnabled ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setTotpMode("disable");
+                      setTotpError("");
+                      setTotpCode("");
+                    }}
+                    className="mr-auto rounded-lg border border-border px-3.5 py-2 text-[13px] font-bold text-destructive transition hover:bg-muted"
+                  >
+                    Disable 2FA
+                  </button>
+                ) : null}
+                <button
+                  type="button"
+                  onClick={() => setTwoFaOpen(false)}
+                  className="rounded-lg border border-border px-3.5 py-2 text-[13px] font-bold transition hover:bg-muted"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  disabled={totpBusy || totpCode.length !== 6 || !totpSetup}
+                  onClick={() => {
+                    setTotpBusy(true);
+                    setTotpError("");
+                    void confirmAdminTotp(totpCode)
+                      .then(() => {
+                        setTotpEnabled(true);
+                        setTwoFaOpen(false);
+                        toast.success("Authenticator enabled", {
+                          description: "You’ll need a code from the app at each sign-in.",
+                        });
+                      })
+                      .catch((err) =>
+                        setTotpError(
+                          err instanceof AdminApiError
+                            ? err.message
+                            : "Could not confirm authenticator",
+                        ),
+                      )
+                      .finally(() => setTotpBusy(false));
+                  }}
+                  className="rounded-lg bg-brand px-3.5 py-2 text-[13px] font-bold text-primary-foreground transition hover:opacity-90 disabled:opacity-50"
+                >
+                  {totpBusy ? "Confirming…" : "Confirm device"}
+                </button>
+              </div>
+            </>
+          ) : (
+            <>
+              <label className="block">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+                  Console password
+                </span>
+                <input
+                  type="password"
+                  value={totpPassword}
+                  onChange={(e) => setTotpPassword(e.target.value)}
+                  className="mt-1 w-full rounded-lg border border-border bg-card px-3 py-2 text-[13.5px] outline-none focus:border-brand"
+                />
+              </label>
+              <label className="mt-3 block">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+                  Authenticator code
+                </span>
+                <input
+                  value={totpCode}
+                  onChange={(e) => setTotpCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                  inputMode="numeric"
+                  placeholder="123456"
+                  className="mt-1 w-full rounded-lg border border-border bg-card px-3 py-2 font-mono text-[15px] font-bold tracking-[0.2em] outline-none focus:border-brand"
+                />
+              </label>
+              {totpError ? <p className="mt-2 text-[12px] text-destructive">{totpError}</p> : null}
+              <div className="mt-3 flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setTotpMode("setup");
+                    setTotpError("");
+                    setTotpCode("");
+                  }}
+                  className="rounded-lg border border-border px-3.5 py-2 text-[13px] font-bold transition hover:bg-muted"
+                >
+                  Back
+                </button>
+                <button
+                  type="button"
+                  disabled={totpBusy || !totpPassword || totpCode.length !== 6}
+                  onClick={() => {
+                    setTotpBusy(true);
+                    setTotpError("");
+                    void disableAdminTotp({ password: totpPassword, code: totpCode })
+                      .then(() => {
+                        setTotpEnabled(false);
+                        setTwoFaOpen(false);
+                        toast.success("Authenticator disabled");
+                      })
+                      .catch((err) =>
+                        setTotpError(
+                          err instanceof AdminApiError
+                            ? err.message
+                            : "Could not disable authenticator",
+                        ),
+                      )
+                      .finally(() => setTotpBusy(false));
+                  }}
+                  className="rounded-lg bg-destructive px-3.5 py-2 text-[13px] font-bold text-destructive-foreground transition hover:opacity-90 disabled:opacity-50"
+                >
+                  {totpBusy ? "Disabling…" : "Disable 2FA"}
+                </button>
+              </div>
+            </>
+          )}
         </DialogContent>
       </Dialog>
     </AdminShell>

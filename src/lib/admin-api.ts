@@ -80,10 +80,12 @@ export async function adminApi<T>(path: string, init: RequestInit = {}): Promise
 export async function adminLogin(email: string, password: string) {
   const data = await adminApi<{
     mfaRequired: boolean;
+    mfaMethod?: "totp" | "email";
     mfaToken?: string;
     accessToken?: string;
     admin: { id: string; email: string; name: string; role: string };
     debugCode?: string;
+    totpEnabled?: boolean;
   }>("/v1/admin/login", {
     method: "POST",
     body: JSON.stringify({ email, password }),
@@ -91,11 +93,23 @@ export async function adminLogin(email: string, password: string) {
   if (data.accessToken && !data.mfaRequired) {
     setAdminMfaToken(null);
     setAdminAccessToken(data.accessToken);
+    if (typeof window !== "undefined") {
+      window.sessionStorage.removeItem("kipit.admin.mfaMethod");
+    }
   } else {
     setAdminAccessToken(null);
     setAdminMfaToken(data.mfaToken ?? null);
+    if (typeof window !== "undefined") {
+      window.sessionStorage.setItem("kipit.admin.mfaMethod", data.mfaMethod || "email");
+    }
   }
   return data;
+}
+
+export function getAdminMfaMethod(): "totp" | "email" {
+  if (typeof window === "undefined") return "email";
+  const v = window.sessionStorage.getItem("kipit.admin.mfaMethod");
+  return v === "totp" ? "totp" : "email";
 }
 
 export async function adminVerifyLoginOtp(code: string) {
@@ -110,6 +124,9 @@ export async function adminVerifyLoginOtp(code: string) {
   });
   setAdminMfaToken(null);
   setAdminAccessToken(data.accessToken);
+  if (typeof window !== "undefined") {
+    window.sessionStorage.removeItem("kipit.admin.mfaMethod");
+  }
   return data;
 }
 
@@ -697,6 +714,8 @@ export async function fetchAdminMe() {
     name: string;
     role: string;
     phone: string | null;
+    totpEnabled?: boolean;
+    require2fa?: boolean;
     alertPrefs?: {
       withdrawalApprovals: boolean;
       amlEscalations: boolean;
@@ -705,6 +724,31 @@ export async function fetchAdminMe() {
       dailyOpsDigest: boolean;
     };
   }>("/v1/admin/me");
+}
+
+export async function setupAdminTotp() {
+  return adminApi<{
+    secret: string;
+    secretDisplay: string;
+    otpauthUrl: string;
+    issuer: string;
+    account: string;
+    replacing: boolean;
+  }>("/v1/admin/me/2fa/setup", { method: "POST", body: "{}" });
+}
+
+export async function confirmAdminTotp(code: string) {
+  return adminApi<{ totpEnabled: boolean }>("/v1/admin/me/2fa/confirm", {
+    method: "POST",
+    body: JSON.stringify({ code }),
+  });
+}
+
+export async function disableAdminTotp(input: { password: string; code: string }) {
+  return adminApi<{ totpEnabled: boolean }>("/v1/admin/me/2fa/disable", {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
 }
 
 export async function patchAdminMe(input: {
