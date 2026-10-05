@@ -83,22 +83,80 @@ export function findReconRecord(id: string) {
 }
 
 function mapSource(raw: string): ReconSource {
-  if (raw === "Flutterwave") return "Flutterwave";
-  if (raw === "NIBSS transfer") return "NIBSS transfer";
-  if (raw === "Card acquirer") return "Card acquirer";
+  const s = raw.toLowerCase();
+  if (raw === "Flutterwave" || s.includes("flutterwave")) return "Flutterwave";
+  if (raw === "NIBSS transfer" || s.includes("nibss") || s.includes("monnify") || s.includes("transfer")) {
+    return "NIBSS transfer";
+  }
+  if (raw === "Card acquirer" || s.includes("card")) return "Card acquirer";
   return "Paystack";
 }
 
 function mapStatus(raw: string): ReconStatus {
-  if (raw === "unmatched" || raw === "variance" || raw === "investigating" || raw === "resolved") {
+  if (
+    raw === "unmatched" ||
+    raw === "variance" ||
+    raw === "investigating" ||
+    raw === "resolved" ||
+    raw === "matched"
+  ) {
     return raw;
   }
-  return "matched";
+  // Backend historically stored open exceptions as "open".
+  if (raw === "open") return "unmatched";
+  return "unmatched";
 }
 
 function mapChannel(raw: string): ReconRecord["channel"] {
-  if (raw === "Withdrawal" || raw === "Card" || raw === "Transfer") return raw;
+  if (raw === "Withdrawal" || raw === "Card" || raw === "Transfer" || raw === "Deposit") return raw;
+  const s = raw.toLowerCase();
+  if (s.includes("withdraw")) return "Withdrawal";
+  if (s.includes("card")) return "Card";
+  if (s.includes("transfer") || s.includes("nibss") || s.includes("monnify")) return "Transfer";
   return "Deposit";
+}
+
+function refreshReconAggregates() {
+  const sources: ReconSource[] = ["Paystack", "Flutterwave", "NIBSS transfer", "Card acquirer"];
+  RECON_SOURCES = sources.map((name) => {
+    const rows = RECON_RECORDS.filter((r) => r.source === name);
+    const latest = rows
+      .map((r) => r.date)
+      .sort()
+      .at(-1);
+    return {
+      name,
+      records: rows.length,
+      value: rows.reduce((s, r) => s + Math.abs(r.providerAmount - r.ledgerAmount), 0),
+      lastSync: latest
+        ? new Date(latest).toLocaleDateString("en-NG", { day: "2-digit", month: "short" })
+        : "—",
+    };
+  });
+
+  const days: string[] = [];
+  for (let i = 6; i >= 0; i -= 1) {
+    const d = new Date();
+    d.setDate(d.getDate() - i);
+    days.push(d.toISOString().slice(0, 10));
+  }
+  RECON_TREND = days.map((iso) => {
+    const dayRows = RECON_RECORDS.filter((r) => r.date === iso);
+    const label = new Date(`${iso}T00:00:00Z`).toLocaleDateString("en-GB", {
+      day: "2-digit",
+      month: "short",
+      timeZone: "UTC",
+    });
+    return {
+      day: label,
+      matched: dayRows.filter((r) => r.status === "matched" || r.status === "resolved").length,
+      exceptions: dayRows.filter(
+        (r) => r.status === "unmatched" || r.status === "variance" || r.status === "investigating",
+      ).length,
+    };
+  });
+
+  RECON_TOTALS = computeReconTotals();
 }
 
 export async function hydrateAdminReconFromApi() {
@@ -106,7 +164,7 @@ export async function hydrateAdminReconFromApi() {
     const { getAdminAccessToken, fetchAdminRecon } = await import("./admin-api");
     if (!getAdminAccessToken()) {
       RECON_RECORDS = [];
-      RECON_TOTALS = computeReconTotals();
+      refreshReconAggregates();
       return [];
     }
     const rows = await fetchAdminRecon();
@@ -125,11 +183,11 @@ export async function hydrateAdminReconFromApi() {
       ...(r.note ? { note: r.note } : {}),
       ...(r.owner ? { owner: r.owner } : {}),
     }));
-    RECON_TOTALS = computeReconTotals();
+    refreshReconAggregates();
     return RECON_RECORDS;
   } catch {
     RECON_RECORDS = [];
-    RECON_TOTALS = computeReconTotals();
+    refreshReconAggregates();
     return [];
   }
 }
