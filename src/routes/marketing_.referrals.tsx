@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { ArrowLeft, Coins, Gift, History, ShieldCheck, Trophy, Users } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
 import { AdminShell } from "@/components/kipit/AdminShell";
@@ -12,6 +12,7 @@ import {
   REFERRAL_RULES,
   hydrateAdminReferralsFromApi,
 } from "@/lib/admin-marketing-data";
+import { putAdminReferralProgramme } from "@/lib/admin-api";
 
 export const Route = createFileRoute("/marketing_/referrals")({
   head: () => ({
@@ -43,16 +44,39 @@ function ReferralRulesPage() {
   const [values, setValues] = useState<Record<string, string>>(
     Object.fromEntries(REFERRAL_RULES.map((r) => [r.id, r.value])),
   );
+  const [baseline, setBaseline] = useState({
+    enabled: REFERRAL_PROGRAMME.enabled,
+    requiresKyc: REFERRAL_PROGRAMME.requiresKyc,
+    values: Object.fromEntries(REFERRAL_RULES.map((r) => [r.id, r.value])),
+  });
   const [stats, setStats] = useState({ ...REFERRAL_PROGRAMME });
   const [leaders, setLeaders] = useState(REFERRAL_LEADERS);
-  const dirty = REFERRAL_RULES.some((r) => values[r.id] !== r.value);
+  const [changeLog, setChangeLog] = useState(REFERRAL_CHANGE_LOG);
+  const [saving, setSaving] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    void hydrateAdminReferralsFromApi().then((s) => {
-      setStats({ ...s });
-      setLeaders([...REFERRAL_LEADERS]);
-    });
+    void hydrateAdminReferralsFromApi()
+      .then((data) => {
+        setEnabled(data.enabled);
+        setRequiresKyc(data.requiresKyc);
+        setValues(data.rules);
+        setBaseline({
+          enabled: data.enabled,
+          requiresKyc: data.requiresKyc,
+          values: { ...data.rules },
+        });
+        setStats({ ...data.stats });
+        setLeaders([...data.leaders]);
+        setChangeLog([...data.changeLog]);
+      })
+      .finally(() => setLoading(false));
   }, []);
+
+  const dirty = useMemo(() => {
+    if (enabled !== baseline.enabled || requiresKyc !== baseline.requiresKyc) return true;
+    return REFERRAL_RULES.some((r) => (values[r.id] ?? "") !== (baseline.values[r.id] ?? ""));
+  }, [enabled, requiresKyc, values, baseline]);
 
   const setValue = (id: string, raw: string) =>
     setValues((v) => ({ ...v, [id]: raw.replace(/[^0-9]/g, "") }));
@@ -60,11 +84,53 @@ function ReferralRulesPage() {
   const display = (id: string, kind: string) => {
     const n = Number(values[id] || 0);
     if (kind === "amount") return n.toLocaleString("en-NG");
-    return values[id];
+    return values[id] ?? "";
   };
 
   const conversion =
     stats.invitesSent > 0 ? Math.round((stats.invitesQualified / stats.invitesSent) * 100) : 0;
+
+  async function saveRules() {
+    setSaving(true);
+    try {
+      const rules = Object.fromEntries(
+        REFERRAL_RULES.map((r) => [r.id, String(values[r.id] ?? "0").replace(/\D/g, "") || "0"]),
+      );
+      const saved = await putAdminReferralProgramme({
+        enabled,
+        requiresKyc,
+        rules,
+      });
+      const nextValues = {
+        ...Object.fromEntries(REFERRAL_RULES.map((r) => [r.id, r.value])),
+        ...(saved.rules ?? rules),
+      };
+      for (const rule of REFERRAL_RULES) {
+        if (nextValues[rule.id] != null) rule.value = String(nextValues[rule.id]);
+      }
+      setValues(nextValues);
+      setEnabled(saved.enabled);
+      setRequiresKyc(saved.requiresKyc);
+      setBaseline({
+        enabled: saved.enabled,
+        requiresKyc: saved.requiresKyc,
+        values: { ...nextValues },
+      });
+      setChangeLog(saved.changeLog ?? []);
+      setStats((s) => ({
+        ...s,
+        enabled: saved.enabled,
+        requiresKyc: saved.requiresKyc,
+        updatedAt: saved.updatedAt ? new Date(saved.updatedAt).toLocaleString("en-NG") : s.updatedAt,
+        updatedBy: saved.updatedBy ?? s.updatedBy,
+      }));
+      toast.success("Referral rules saved");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not save referral rules");
+    } finally {
+      setSaving(false);
+    }
+  }
 
   return (
     <AdminShell
@@ -100,9 +166,9 @@ function ReferralRulesPage() {
           icon={Coins}
         />
         <Stat
-          label="Awaiting approval"
-          value={String(stats.pendingApproval)}
-          helper="Rule changes in maker-checker"
+          label="Last updated"
+          value={stats.updatedAt === "—" ? "—" : stats.updatedAt.split(",")[0] ?? stats.updatedAt}
+          helper={stats.updatedBy === "—" ? "No saved changes yet" : `By ${stats.updatedBy}`}
           icon={ShieldCheck}
         />
       </div>
@@ -113,23 +179,29 @@ function ReferralRulesPage() {
           action={
             <button
               type="button"
-              disabled={!dirty}
-              onClick={() => toast.success("Rule change submitted for approval")}
+              disabled={!dirty || saving || loading}
+              onClick={() => void saveRules()}
               className="inline-flex h-9 items-center rounded-lg bg-brand px-3 text-[12.5px] font-bold text-primary-foreground disabled:opacity-40"
             >
-              Submit for approval
+              {saving ? "Saving…" : "Save changes"}
             </button>
           }
         >
           <div className="flex flex-wrap gap-4 border-b border-border/70 px-5 py-4">
             <label className="flex items-center gap-2 text-[13px] font-semibold">
-              <input type="checkbox" checked={enabled} onChange={(e) => setEnabled(e.target.checked)} />
+              <input
+                type="checkbox"
+                checked={enabled}
+                disabled={loading}
+                onChange={(e) => setEnabled(e.target.checked)}
+              />
               Programme enabled
             </label>
             <label className="flex items-center gap-2 text-[13px] font-semibold">
               <input
                 type="checkbox"
                 checked={requiresKyc}
+                disabled={loading}
                 onChange={(e) => setRequiresKyc(e.target.checked)}
               />
               Require KYC before reward
@@ -144,12 +216,16 @@ function ReferralRulesPage() {
                 </div>
                 <input
                   value={display(r.id, r.kind)}
+                  disabled={loading}
                   onChange={(e) => setValue(r.id, e.target.value)}
-                  className="w-28 rounded-lg border border-border bg-background px-3 py-2 text-right text-[13.5px] font-bold tabular-nums outline-none focus:border-brand"
+                  className="w-28 rounded-lg border border-border bg-background px-3 py-2 text-right text-[13.5px] font-bold tabular-nums outline-none focus:border-brand disabled:opacity-50"
                 />
               </div>
             ))}
           </div>
+          <p className="border-t border-border/70 px-5 py-3 text-[12px] text-muted-foreground">
+            {dirty ? "You have unsaved changes." : "No rule changes."}
+          </p>
         </Panel>
 
         <div className="space-y-4">
@@ -170,15 +246,15 @@ function ReferralRulesPage() {
             )}
           </Panel>
           <Panel title="Change log" icon={History}>
-            {REFERRAL_CHANGE_LOG.length === 0 ? (
+            {changeLog.length === 0 ? (
               <p className="px-5 py-8 text-[13px] text-muted-foreground">No rule changes recorded.</p>
             ) : (
               <ul className="divide-y divide-border/60">
-                {REFERRAL_CHANGE_LOG.map((c) => (
+                {changeLog.map((c) => (
                   <li key={`${c.at}-${c.change}`} className="px-5 py-3">
                     <p className="text-[13px] font-semibold">{c.change}</p>
                     <p className="text-[12px] text-muted-foreground">
-                      {c.at} · {c.by} · {c.status}
+                      {new Date(c.at).toLocaleString("en-NG")} · {c.by} · {c.status}
                     </p>
                   </li>
                 ))}

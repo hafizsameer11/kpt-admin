@@ -1300,6 +1300,30 @@ export async function putAdminDigest(body: {
   });
 }
 
+export type AdminReferralProgrammeSettings = {
+  enabled: boolean;
+  requiresKyc: boolean;
+  rules: Record<string, string>;
+  changeLog?: { at: string; by: string; change: string; status: string }[];
+  updatedAt?: string | null;
+  updatedBy?: string | null;
+};
+
+export async function fetchAdminReferralProgramme() {
+  return adminApi<AdminReferralProgrammeSettings>("/v1/admin/marketing/referrals");
+}
+
+export async function putAdminReferralProgramme(body: {
+  enabled: boolean;
+  requiresKyc: boolean;
+  rules: Record<string, string>;
+}) {
+  return adminApi<AdminReferralProgrammeSettings>("/v1/admin/marketing/referrals", {
+    method: "PUT",
+    body: JSON.stringify(body),
+  });
+}
+
 export type AdminReportPack = {
   id: string;
   name: string;
