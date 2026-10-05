@@ -91,12 +91,15 @@ export async function hydrateAdminDashboardFromApi() {
       fetchAdminRecentActivity,
       fetchAdminTodayFlows,
       fetchAdminFlowTrend,
+      fetchAdminInterestTrend,
+      fetchAdminMaturitySchedule,
       fetchAdminPrincipalByTenor,
       fetchAdminPrincipalByProduct,
       getAdminAccessToken,
     } = await import("./admin-api");
     if (!getAdminAccessToken()) return false;
-    const [dash, maturities, activity, flows, flowTrend, byTenor, byProduct] = await Promise.all([
+    const [dash, maturities, activity, flows, flowTrend, interestTrend, maturitySchedule, byTenor, byProduct] =
+      await Promise.all([
       fetchAdminDashboard(),
       fetchAdminMaturities().catch(() => [] as typeof MATURITIES),
       fetchAdminRecentActivity().catch(() => [] as typeof RECENT_ACTIVITY),
@@ -107,6 +110,12 @@ export async function hydrateAdminDashboardFromApi() {
         withdrawals: 0,
       })),
       fetchAdminFlowTrend().catch(() => [] as { day: string; deposits: number; withdrawals: number }[]),
+      fetchAdminInterestTrend().catch(
+        () => [] as { month: string; accrued: number; paid: number; accruedNaira?: number; paidNaira?: number }[],
+      ),
+      fetchAdminMaturitySchedule().catch(
+        () => [] as { week: string; value: number; valueNaira?: number }[],
+      ),
       fetchAdminPrincipalByTenor().catch(() => [] as typeof PRINCIPAL_BY_TENOR),
       fetchAdminPrincipalByProduct().catch(() => [] as typeof PRINCIPAL_BY_PRODUCT),
     ]);
@@ -129,6 +138,30 @@ export async function hydrateAdminDashboardFromApi() {
           day: row.day,
           deposits: row.deposits,
           withdrawals: row.withdrawals,
+        })),
+      );
+    }
+    if (interestTrend.length) {
+      INTEREST_TREND.splice(
+        0,
+        INTEREST_TREND.length,
+        ...interestTrend.map((row) => ({
+          month: row.month,
+          accrued: row.accrued,
+          paid: row.paid,
+        })),
+      );
+      const latest = interestTrend[interestTrend.length - 1];
+      INTEREST_ACCRUED = latest?.accruedNaira ?? Math.round((latest?.accrued ?? 0) * 1_000_000);
+      INTEREST_PAYABLE = latest?.paidNaira ?? Math.round((latest?.paid ?? 0) * 1_000_000);
+    }
+    if (maturitySchedule.length) {
+      MATURITY_SCHEDULE.splice(
+        0,
+        MATURITY_SCHEDULE.length,
+        ...maturitySchedule.map((row) => ({
+          week: row.week,
+          value: row.value,
         })),
       );
     }
