@@ -20,6 +20,7 @@ import {
   type AdminProduct,
   type ProductStatus,
 } from "@/lib/admin-products-data";
+import { adminCanAccess, hydrateAdminPermissionsFromApi } from "@/lib/admin-permissions";
 
 export const Route = createFileRoute("/products")({
   head: () => ({
@@ -50,9 +51,11 @@ function ProductListPage() {
   const [products, setProducts] = useState<AdminProduct[]>([]);
   const [tab, setTab] = useState<"all" | ProductStatus>("all");
   const [query, setQuery] = useState("");
+  const [canManage, setCanManage] = useState(false);
 
   useEffect(() => {
     void hydrateAdminProductsFromApi().then(setProducts);
+    void hydrateAdminPermissionsFromApi().then(() => setCanManage(adminCanAccess("product.manage")));
   }, []);
 
   const rows = useMemo(() => {
@@ -136,13 +139,15 @@ function ProductListPage() {
               />
             </label>
 
-            <Link
-              to="/products/new"
-              className="inline-flex h-9 items-center gap-2 rounded-lg bg-brand px-3 text-[12.5px] font-bold text-primary-foreground transition hover:opacity-90"
-            >
-              <Plus className="size-4" />
-              Create product
-            </Link>
+            {canManage ? (
+              <Link
+                to="/products/new"
+                className="inline-flex h-9 items-center gap-2 rounded-lg bg-brand px-3 text-[12.5px] font-bold text-primary-foreground transition hover:opacity-90"
+              >
+                <Plus className="size-4" />
+                Create product
+              </Link>
+            ) : null}
           </div>
 
           <div className="overflow-x-auto">

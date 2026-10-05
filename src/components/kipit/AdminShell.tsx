@@ -35,9 +35,13 @@ import {
   lockAdminSession,
   type AdminSession,
 } from "@/lib/admin-auth";
+import {
+  adminCanAccess,
+  hydrateAdminPermissionsFromApi,
+} from "@/lib/admin-permissions";
 
 
-type Item = { label: string; to: string; icon: LucideIcon; soon?: boolean };
+type Item = { label: string; to: string; icon: LucideIcon; soon?: boolean; anyOf?: string[] };
 type Group = { heading: string; items: Item[] };
 
 /** Admin console navigation, mapped to the ADM-0xx sections in the UX spec. */
@@ -49,49 +53,68 @@ const GROUPS: Group[] = [
   {
     heading: "Operations",
     items: [
-      { label: "Users", to: "/users", icon: Users },
-      { label: "Signup drop-offs", to: "/users/dropoffs", icon: Users },
-      { label: "Compliance & KYC", to: "/compliance", icon: ShieldCheck },
-      { label: "Transactions", to: "/transactions", icon: ArrowLeftRight },
-      { label: "Withdrawals", to: "/withdrawals", icon: Banknote },
-      { label: "Reconciliation", to: "/reconciliation", icon: Scale },
+      { label: "Users", to: "/users", icon: Users, anyOf: ["users.view"] },
+      { label: "Signup drop-offs", to: "/users/dropoffs", icon: Users, anyOf: ["users.view"] },
+      {
+        label: "Compliance & KYC",
+        to: "/compliance",
+        icon: ShieldCheck,
+        anyOf: ["kyc.review", "kyc.decide", "aml.investigate", "aml.report"],
+      },
+      { label: "Transactions", to: "/transactions", icon: ArrowLeftRight, anyOf: ["txn.view"] },
+      {
+        label: "Withdrawals",
+        to: "/withdrawals",
+        icon: Banknote,
+        anyOf: ["withdrawal.process", "withdrawal.decline"],
+      },
+      { label: "Reconciliation", to: "/reconciliation", icon: Scale, anyOf: ["recon.resolve"] },
     ],
   },
   {
     heading: "Products & rates",
     items: [
-      { label: "Products", to: "/products", icon: Package },
-      { label: "Rate management", to: "/rates", icon: Percent },
-      { label: "Plan adjustments", to: "/adjustments", icon: SlidersHorizontal },
+      { label: "Products", to: "/products", icon: Package, anyOf: ["product.manage"] },
+      {
+        label: "Rate management",
+        to: "/rates",
+        icon: Percent,
+        anyOf: ["rate.propose", "rate.approve"],
+      },
+      {
+        label: "Plan adjustments",
+        to: "/adjustments",
+        icon: SlidersHorizontal,
+        anyOf: ["adjustment.request", "adjustment.approve"],
+      },
     ],
   },
   {
     heading: "Growth & care",
     items: [
-      { label: "Marketing", to: "/marketing", icon: Megaphone },
-      { label: "Support", to: "/support", icon: LifeBuoy },
-      { label: "Ask AI log", to: "/ai-chat", icon: MessageSquare },
+      { label: "Marketing", to: "/marketing", icon: Megaphone, anyOf: ["marketing.manage"] },
+      { label: "Support", to: "/support", icon: LifeBuoy, anyOf: ["support.reply"] },
+      { label: "Ask AI log", to: "/ai-chat", icon: MessageSquare, anyOf: ["users.view", "support.reply", "audit.view"] },
     ],
   },
   {
     heading: "Insights",
     items: [
-      { label: "Reports & analytics", to: "/analytics", icon: LineChart },
-      { label: "Reports centre", to: "/reports", icon: FileSpreadsheet },
+      { label: "Reports & analytics", to: "/analytics", icon: LineChart, anyOf: ["audit.view", "txn.view"] },
+      { label: "Reports centre", to: "/reports", icon: FileSpreadsheet, anyOf: ["audit.view", "txn.view"] },
     ],
   },
   {
     heading: "Console",
     items: [
-      { label: "Admin users", to: "/team", icon: UserCog },
-      { label: "Roles & permissions", to: "/team/roles", icon: KeyRound },
-      { label: "Audit log", to: "/audit", icon: ScrollText },
+      { label: "Admin users", to: "/team", icon: UserCog, anyOf: ["admin.manage"] },
+      { label: "Roles & permissions", to: "/team/roles", icon: KeyRound, anyOf: ["role.manage"] },
+      { label: "Audit log", to: "/audit", icon: ScrollText, anyOf: ["audit.view"] },
       { label: "Notifications", to: "/notifications", icon: Bell },
-      { label: "System settings", to: "/settings", icon: Settings },
+      { label: "System settings", to: "/settings", icon: Settings, anyOf: ["role.manage", "admin.manage"] },
       { label: "My profile", to: "/profile", icon: UserCircle },
     ],
   },
-
 ];
 
 const NAV_EXACT_CHILDREN: Record<string, string[]> = {
@@ -125,6 +148,7 @@ export function AdminShell({
   const navigate = useNavigate();
   const [session, setSession] = useState<AdminSession | null>(null);
   const [headerQuery, setHeaderQuery] = useState("");
+  const [permTick, setPermTick] = useState(0);
 
   /** ADM-001/003 — no session means back to sign in; a locked session goes to the lock screen. */
   useEffect(() => {
@@ -133,6 +157,16 @@ export function AdminShell({
     if (!current) navigate({ to: "/login", replace: true });
     else if (current.locked) navigate({ to: "/locked", replace: true });
   }, [navigate, pathname]);
+
+  useEffect(() => {
+    void hydrateAdminPermissionsFromApi().then(() => setPermTick((n) => n + 1));
+  }, [session?.email, session?.role]);
+
+  const visibleGroups = GROUPS.map((group) => ({
+    ...group,
+    items: group.items.filter((item) => !item.anyOf || adminCanAccess(...item.anyOf)),
+  })).filter((group) => group.items.length > 0);
+  void permTick;
 
   /** ADM-003 — auto-lock after a period of inactivity. */
   useEffect(() => {
@@ -176,7 +210,7 @@ export function AdminShell({
         </div>
 
         <nav className="no-scrollbar flex-1 overflow-y-auto px-3 pb-6">
-          {GROUPS.map((group) => (
+          {visibleGroups.map((group) => (
             <div key={group.heading} className="mt-5 first:mt-1">
               <p className="px-3 pb-2 text-[10px] font-bold uppercase tracking-[0.14em] text-primary-foreground/40">
                 {group.heading}

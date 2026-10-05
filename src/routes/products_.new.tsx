@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import {
   ArrowLeft,
@@ -23,6 +23,7 @@ import {
 } from "@/components/ui/dialog";
 import { naira } from "@/lib/admin-data";
 import { DOC_KINDS, PRODUCT_CATEGORIES, type ProductDoc } from "@/lib/admin-products-data";
+import { adminCanAccess, hydrateAdminPermissionsFromApi } from "@/lib/admin-permissions";
 
 export const Route = createFileRoute("/products_/new")({
   head: () => ({
@@ -58,6 +59,7 @@ function digits(v: string) {
 
 function CreateProductPage() {
   const navigate = useNavigate();
+  const [allowed, setAllowed] = useState<boolean | null>(null);
   const [step, setStep] = useState(1);
 
   const [name, setName] = useState("");
@@ -84,6 +86,14 @@ function CreateProductPage() {
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [draftBusy, setDraftBusy] = useState(false);
 
+  useEffect(() => {
+    void hydrateAdminPermissionsFromApi().then(() => {
+      const ok = adminCanAccess("product.manage");
+      setAllowed(ok);
+      if (!ok) toast.error("Your role cannot create products");
+    });
+  }, []);
+
   const descriptionError =
     descTouched && description.trim().length > 0 && description.trim().length < 10
       ? "Description must be at least 10 characters"
@@ -98,6 +108,29 @@ function CreateProductPage() {
     Number(digits(minimum)) > 0;
 
   const draftValid = name.trim().length > 2;
+
+  const minimumLabel = useMemo(
+    () => (digits(minimum) ? naira(Number(digits(minimum))) : "—"),
+    [minimum],
+  );
+
+  if (allowed === false) {
+    return (
+      <AdminShell title="Create product" subtitle="Restricted">
+        <Panel className="p-8 text-center">
+          <p className="text-[14px] text-muted-foreground">
+            Operations cannot create products. Ask a Finance or Global Admin operator.
+          </p>
+          <Link
+            to="/"
+            className="mt-4 inline-flex h-10 items-center rounded-lg bg-brand px-4 text-[13px] font-bold text-primary-foreground"
+          >
+            Back to dashboard
+          </Link>
+        </Panel>
+      </AdminShell>
+    );
+  }
 
   async function saveAsDraft() {
     if (!draftValid || draftBusy) return;
@@ -136,11 +169,6 @@ function CreateProductPage() {
       setDraftBusy(false);
     }
   }
-
-  const minimumLabel = useMemo(
-    () => (digits(minimum) ? naira(Number(digits(minimum))) : "—"),
-    [minimum],
-  );
 
   function formatFileSize(bytes: number) {
     if (bytes < 1024) return `${bytes} B`;
