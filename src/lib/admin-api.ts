@@ -697,14 +697,44 @@ export async function fetchAdminMe() {
     name: string;
     role: string;
     phone: string | null;
+    alertPrefs?: {
+      withdrawalApprovals: boolean;
+      amlEscalations: boolean;
+      reconVariances: boolean;
+      rateApprovals: boolean;
+      dailyOpsDigest: boolean;
+    };
   }>("/v1/admin/me");
 }
 
-export async function patchAdminMe(input: { name?: string; phone?: string }) {
-  return adminApi<{ id: string; name: string; phone: string | null; email: string; role: string }>(
-    "/v1/admin/me",
-    { method: "PATCH", body: JSON.stringify(input) },
-  );
+export async function patchAdminMe(input: {
+  name?: string;
+  phone?: string;
+  alertPrefs?: Partial<{
+    withdrawalApprovals: boolean;
+    amlEscalations: boolean;
+    reconVariances: boolean;
+    rateApprovals: boolean;
+    dailyOpsDigest: boolean;
+  }>;
+}) {
+  return adminApi<{
+    id: string;
+    name: string;
+    phone: string | null;
+    email: string;
+    role: string;
+    alertPrefs?: {
+      withdrawalApprovals: boolean;
+      amlEscalations: boolean;
+      reconVariances: boolean;
+      rateApprovals: boolean;
+      dailyOpsDigest: boolean;
+    };
+  }>("/v1/admin/me", {
+    method: "PATCH",
+    body: JSON.stringify(input),
+  });
 }
 
 export async function changeAdminPassword(input: { currentPassword: string; newPassword: string }) {

@@ -55,13 +55,43 @@ export const Route = createFileRoute("/profile")({
   component: AdminProfilePage,
 });
 
-const PREFERENCES = [
-  { id: "pf-wd", label: "Withdrawal approvals", helper: "Every request above your limit", on: true },
-  { id: "pf-aml", label: "AML escalations", helper: "Alerts assigned to you", on: true },
-  { id: "pf-recon", label: "Reconciliation variances", helper: "Daily unmatched summary", on: true },
-  { id: "pf-rates", label: "Rate approvals", helper: "Proposals awaiting a checker", on: false },
-  { id: "pf-digest", label: "Daily operations digest", helper: "07:00 email summary", on: true },
+const PREF_DEFS = [
+  {
+    id: "withdrawalApprovals" as const,
+    label: "Withdrawal approvals",
+    helper: "Every request above your limit",
+  },
+  {
+    id: "amlEscalations" as const,
+    label: "AML escalations",
+    helper: "Alerts assigned to you",
+  },
+  {
+    id: "reconVariances" as const,
+    label: "Reconciliation variances",
+    helper: "Daily unmatched summary",
+  },
+  {
+    id: "rateApprovals" as const,
+    label: "Rate approvals",
+    helper: "Proposals awaiting a checker",
+  },
+  {
+    id: "dailyOpsDigest" as const,
+    label: "Daily operations digest",
+    helper: "07:00 email summary",
+  },
 ];
+
+type PrefId = (typeof PREF_DEFS)[number]["id"];
+
+const DEFAULT_PREFS: Record<PrefId, boolean> = {
+  withdrawalApprovals: true,
+  amlEscalations: true,
+  reconVariances: true,
+  rateApprovals: false,
+  dailyOpsDigest: true,
+};
 
 function AdminProfilePage() {
   const navigate = useNavigate();
@@ -69,7 +99,7 @@ function AdminProfilePage() {
   const [role, setRole] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
-  const [prefs, setPrefs] = useState(PREFERENCES);
+  const [prefs, setPrefs] = useState(DEFAULT_PREFS);
   const [revoked, setRevoked] = useState<string[]>([]);
   const [activity, setActivity] = useState<{ id: string; action: string; when: string }[]>([]);
   const [pwOpen, setPwOpen] = useState(false);
@@ -99,6 +129,9 @@ function AdminProfilePage() {
         setRole(me.role);
         setEmail(me.email);
         setPhone(me.phone ?? "");
+        if (me.alertPrefs) {
+          setPrefs({ ...DEFAULT_PREFS, ...me.alertPrefs });
+        }
       })
       .catch(() => {
         /* session fallback above */
@@ -289,7 +322,7 @@ function AdminProfilePage() {
 
           <Panel title="Alert preferences" eyebrow="Notifications">
             <ul className="space-y-3">
-              {prefs.map((p) => (
+              {PREF_DEFS.map((p) => (
                 <li key={p.id} className="flex items-center gap-3">
                   <div className="min-w-0 flex-1">
                     <p className="text-[13px] font-bold">{p.label}</p>
@@ -298,19 +331,29 @@ function AdminProfilePage() {
                   <button
                     type="button"
                     role="switch"
-                    aria-checked={p.on}
-                    onClick={() =>
-                      setPrefs((list) =>
-                        list.map((x) => (x.id === p.id ? { ...x, on: !x.on } : x)),
-                      )
-                    }
+                    aria-checked={prefs[p.id]}
+                    onClick={() => {
+                      const next = { ...prefs, [p.id]: !prefs[p.id] };
+                      setPrefs(next);
+                      void patchAdminMe({ alertPrefs: { [p.id]: next[p.id] } })
+                        .then((me) => {
+                          if (me.alertPrefs) setPrefs({ ...DEFAULT_PREFS, ...me.alertPrefs });
+                          toast.success(`${p.label} ${next[p.id] ? "on" : "off"}`);
+                        })
+                        .catch((err) => {
+                          setPrefs(prefs);
+                          toast.error(
+                            err instanceof AdminApiError ? err.message : "Could not save preference",
+                          );
+                        });
+                    }}
                     className={`relative h-6 w-11 shrink-0 rounded-full transition ${
-                      p.on ? "bg-brand" : "bg-muted"
+                      prefs[p.id] ? "bg-brand" : "bg-muted"
                     }`}
                   >
                     <span
                       className={`absolute top-0.5 size-5 rounded-full bg-white shadow transition-all ${
-                        p.on ? "left-[1.4rem]" : "left-0.5"
+                        prefs[p.id] ? "left-[1.4rem]" : "left-0.5"
                       }`}
                     />
                   </button>
