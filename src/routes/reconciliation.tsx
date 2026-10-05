@@ -141,7 +141,21 @@ function ReconDashboard() {
           </ul>
           <button
             type="button"
-            onClick={() => toast.success("Provider feeds re-synced", { description: "All sources up to date." })}
+            onClick={() => {
+              void hydrateAdminReconFromApi()
+                .then((rows) => {
+                  setRecords(rows);
+                  setTick((t) => t + 1);
+                  toast.success("Reconciliation refreshed", {
+                    description: `${rows.length} record${rows.length === 1 ? "" : "s"} from latest wallet scan.`,
+                  });
+                })
+                .catch(() =>
+                  toast.error("Could not refresh reconciliation", {
+                    description: "Check admin session and try again.",
+                  }),
+                );
+            }}
             className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-lg border border-border px-3 py-2 text-[12.5px] font-bold transition hover:border-brand/40 hover:text-brand"
           >
             <RefreshCw className="size-4" />
