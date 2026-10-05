@@ -62,7 +62,7 @@ function currentValue(inv: ReturnType<typeof findAdjustableInvestment>, type: Ad
     case "tenor":
       return `${inv.tenorDays} days`;
     case "maturity-date":
-      return inv.maturityDate;
+      return toDateInputValue(inv.maturityDate);
     case "principal":
       return naira(inv.principal);
     case "payout-frequency":
@@ -70,6 +70,176 @@ function currentValue(inv: ReturnType<typeof findAdjustableInvestment>, type: Ad
     case "status":
       return inv.status;
   }
+}
+
+/** Normalize API dates to YYYY-MM-DD for display + date inputs. */
+function toDateInputValue(raw: string) {
+  const value = raw.trim();
+  if (!value) return "";
+  const match = value.match(/^(\d{4}-\d{2}-\d{2})/);
+  if (match) return match[1]!;
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return value;
+  return parsed.toISOString().slice(0, 10);
+}
+
+function newValuePlaceholder(type: AdjustmentType) {
+  switch (type) {
+    case "rate":
+      return "e.g. 18.50";
+    case "tenor":
+      return "e.g. 90";
+    case "maturity-date":
+      return "YYYY-MM-DD";
+    case "principal":
+      return "e.g. 500000";
+    case "payout-frequency":
+      return "Select frequency";
+    case "status":
+      return "Select status";
+  }
+}
+
+function newValueHint(type: AdjustmentType) {
+  switch (type) {
+    case "rate":
+      return "Enter the new annual rate as a percentage (e.g. 18.50).";
+    case "tenor":
+      return "Enter tenor in whole days.";
+    case "maturity-date":
+      return "Use the same YYYY-MM-DD format as the current maturity date.";
+    case "principal":
+      return "Enter the new principal in naira (numbers only).";
+    case "payout-frequency":
+      return "Choose how maturity proceeds should be handled.";
+    case "status":
+      return "Choose the new plan status.";
+  }
+}
+
+function NewValueField({
+  type,
+  value,
+  onChange,
+  invalid,
+  investment,
+}: {
+  type: AdjustmentType;
+  value: string;
+  onChange: (next: string) => void;
+  invalid: boolean;
+  investment?: AdjustableInvestment;
+}) {
+  const fieldClass = `mt-1.5 w-full rounded-lg border bg-background px-3 py-2.5 text-[13.5px] font-bold outline-none transition ${
+    invalid ? "border-destructive" : "border-border focus:border-brand/50"
+  }`;
+
+  if (type === "maturity-date") {
+    return (
+      <input
+        type="date"
+        value={toDateInputValue(value)}
+        min={investment ? toDateInputValue(investment.startDate) || undefined : undefined}
+        onChange={(e) => onChange(e.target.value)}
+        className={fieldClass}
+      />
+    );
+  }
+
+  if (type === "rate") {
+    return (
+      <div className="relative mt-1.5">
+        <input
+          type="number"
+          inputMode="decimal"
+          step="0.01"
+          min="0"
+          max="100"
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          placeholder={newValuePlaceholder(type)}
+          className={`${fieldClass} mt-0 pr-8`}
+        />
+        <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[13px] font-bold text-muted-foreground">
+          %
+        </span>
+      </div>
+    );
+  }
+
+  if (type === "tenor") {
+    return (
+      <div className="relative mt-1.5">
+        <input
+          type="number"
+          inputMode="numeric"
+          step="1"
+          min="1"
+          value={value}
+          onChange={(e) => onChange(e.target.value.replace(/[^\d]/g, ""))}
+          placeholder={newValuePlaceholder(type)}
+          className={`${fieldClass} mt-0 pr-14`}
+        />
+        <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[12px] font-bold text-muted-foreground">
+          days
+        </span>
+      </div>
+    );
+  }
+
+  if (type === "principal") {
+    return (
+      <div className="relative mt-1.5">
+        <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[13px] font-bold text-muted-foreground">
+          ₦
+        </span>
+        <input
+          type="text"
+          inputMode="numeric"
+          value={value ? Number(value.replace(/\D/g, "") || 0).toLocaleString("en-NG") : ""}
+          onChange={(e) => onChange(e.target.value.replace(/\D/g, ""))}
+          placeholder="0"
+          className={`${fieldClass} mt-0 pl-7`}
+        />
+      </div>
+    );
+  }
+
+  if (type === "payout-frequency") {
+    return (
+      <select
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className={fieldClass}
+      >
+        <option value="">Select frequency</option>
+        <option value="WALLET">Wallet at maturity</option>
+        <option value="ROLLOVER">Roll over</option>
+        <option value="PAYOUT">Call Account</option>
+        <option value="At maturity">At maturity</option>
+      </select>
+    );
+  }
+
+  if (type === "status") {
+    return (
+      <select value={value} onChange={(e) => onChange(e.target.value)} className={fieldClass}>
+        <option value="">Select status</option>
+        <option value="ACTIVE">ACTIVE</option>
+        <option value="MATURED">MATURED</option>
+        <option value="CLOSED">CLOSED</option>
+      </select>
+    );
+  }
+
+  return (
+    <input
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      placeholder={newValuePlaceholder(type)}
+      className={fieldClass}
+    />
+  );
 }
 
 function NewAdjustmentPage() {
@@ -100,6 +270,15 @@ function NewAdjustmentPage() {
   );
 
   const before = currentValue(investment, type);
+  const proposedDisplay = (() => {
+    const raw = newValue.trim();
+    if (!raw) return "—";
+    if (type === "principal") return naira(Number(raw) || 0);
+    if (type === "rate") return `${Number(raw).toFixed(2)}%`;
+    if (type === "tenor") return `${raw} days`;
+    if (type === "maturity-date") return toDateInputValue(raw);
+    return raw;
+  })();
   const valueError = touched && newValue.trim() === "";
   const reasonError = touched && reason.trim().length < 10;
   const canSubmit =
@@ -215,14 +394,14 @@ function NewAdjustmentPage() {
                 <label className="text-[11px] font-bold uppercase tracking-[0.1em] text-muted-foreground">
                   New value
                 </label>
-                <input
+                <NewValueField
+                  type={type}
                   value={newValue}
-                  onChange={(e) => setNewValue(e.target.value)}
-                  placeholder={type === "principal" ? "₦0" : "Enter new value"}
-                  className={`mt-1.5 w-full rounded-lg border bg-background px-3 py-2.5 text-[13.5px] font-bold outline-none transition ${
-                    valueError ? "border-destructive" : "border-border focus:border-brand/50"
-                  }`}
+                  onChange={setNewValue}
+                  invalid={valueError}
+                  investment={investment}
                 />
+                <p className="mt-1 text-[11.5px] text-muted-foreground">{newValueHint(type)}</p>
                 {valueError ? (
                   <p className="mt-1 text-[11.5px] font-semibold text-destructive">
                     A new value is required.
@@ -268,9 +447,9 @@ function NewAdjustmentPage() {
                 <dl className="mt-4 divide-y divide-border/70 text-[13px]">
                   <Row label="Field" value={ADJUSTMENT_TYPE_LABEL[type]} bold />
                   <Row label="Previous" value={before} muted />
-                  <Row label="Proposed" value={newValue.trim() || "—"} accent />
+                  <Row label="Proposed" value={proposedDisplay} accent />
                   <Row label="Principal" value={naira(investment.principal)} />
-                  <Row label="Maturity" value={investment.maturityDate} />
+                  <Row label="Maturity" value={toDateInputValue(investment.maturityDate)} />
                   <Row label="Maker" value="Seyi Adeleke · Global Admin" />
                 </dl>
               </>
@@ -310,7 +489,7 @@ function NewAdjustmentPage() {
             <DialogTitle>Submit adjustment for approval?</DialogTitle>
             <DialogDescription>
               {investment
-                ? `${ADJUSTMENT_TYPE_LABEL[type]} on ${investment.reference} changes from ${before} to ${newValue.trim()} once a second approver signs off.`
+                ? `${ADJUSTMENT_TYPE_LABEL[type]} on ${investment.reference} changes from ${before} to ${proposedDisplay} once a second approver signs off.`
                 : ""}
             </DialogDescription>
           </DialogHeader>
@@ -332,13 +511,23 @@ function NewAdjustmentPage() {
                     : type === "rate" || type === "tenor" || type === "principal"
                       ? type
                       : "rate";
+                const toValue =
+                  type === "maturity-date"
+                    ? toDateInputValue(newValue.trim())
+                    : type === "rate"
+                      ? `${Number(newValue.trim()).toFixed(2)}%`
+                      : type === "tenor"
+                        ? `${newValue.trim()} days`
+                        : type === "principal"
+                          ? naira(Number(newValue.trim()) || 0)
+                          : newValue.trim();
                 void (async () => {
                   try {
                     const { createAdminAdjustment } = await import("@/lib/admin-api");
                     await createAdminAdjustment({
                       placementId: investment.id,
                       type: apiType,
-                      toValue: newValue.trim(),
+                      toValue,
                       reason: reason.trim(),
                     });
                     setConfirmOpen(false);
