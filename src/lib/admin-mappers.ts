@@ -341,9 +341,22 @@ function rateBandTenorLabel(code: string, minDays: number, maxDays: number | nul
   return `${minDays} – ${maxDays} days`;
 }
 
-function rateBandProductLabel(code: string): string {
-  if (code.toUpperCase() === "CALL") return "Kipit Call Account";
-  return "Kipit Fixed";
+const BAND_PRODUCT_NAMES: Record<string, string> = {
+  CALL: "Kipit Call Account",
+  "1-90": "Kipit Starter",
+  "91-120": "Kipit Fixed Income",
+  "121-180": "Kipit Target Savings",
+  "181-364": "Kipit Growth",
+  "365+": "Kipit Vault",
+};
+
+function rateBandProductLabel(code: string, fallback = "Kipit Fixed"): string {
+  const key = code.trim();
+  return (
+    BAND_PRODUCT_NAMES[key] ??
+    BAND_PRODUCT_NAMES[key.toUpperCase()] ??
+    (key.toUpperCase() === "CALL" ? "Kipit Call Account" : fallback)
+  );
 }
 
 /** Naira minimums by band code — same table as GET /v1/invest/rates. */
@@ -443,7 +456,7 @@ export function mapRateRequest(
     id: row.id,
     bandId: row.bandId,
     band: row.band,
-    product: "Kipit Fixed",
+    product: rateBandProductLabel(row.code ?? "", "Kipit Fixed"),
     currentRate,
     proposedRate,
     effectiveDate: effectiveRaw.slice(0, 10),
