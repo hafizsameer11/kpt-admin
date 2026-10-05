@@ -986,6 +986,8 @@ export async function fetchAdminChatSessions() {
       firstUserMessage?: string | null;
       lastMessage: string | null;
       flagged?: boolean;
+      outcome?: "resolved" | "handoff" | "abandoned" | "escalated";
+      handoffTo?: string | null;
     }[]
   >("/v1/admin/chat/sessions");
 }
@@ -1030,7 +1032,9 @@ export async function fetchAdminChatSession(id: string) {
     id: string;
     user: { id: string; name: string; email: string | null };
     flagged?: boolean;
-    messages: { id: string; role: string; content: string; createdAt: string }[];
+    outcome?: "resolved" | "handoff" | "abandoned" | "escalated";
+    handoffTo?: string | null;
+    messages: { id: string; role: string; content: string; blocks?: unknown; createdAt: string }[];
   }>(`/v1/admin/chat/sessions/${id}`);
 }
 
