@@ -560,7 +560,7 @@ export function mapLedgerTxn(
 export function mapAuditEntry(
   row: Awaited<ReturnType<typeof fetchAdminAudit>>[number],
 ): AuditEntry {
-  const area = mapAuditArea(row.entityType);
+  const area = mapAuditArea(row.entityType, row.action);
   const actor =
     row.actorEmail?.trim() ||
     row.actorName?.trim() ||
@@ -592,20 +592,56 @@ export function mapAuditEntry(
     targetId: row.entityId ?? undefined,
     ip: row.ipAddress?.trim() || "—",
     device: row.userAgent?.trim() ? row.userAgent.slice(0, 48) : "—",
-    severity: "info" as AuditSeverity,
+    severity: mapAuditSeverity(row.action, row.entityType),
     before: jsonPreview(row.before),
     after: jsonPreview(row.after),
   };
 }
 
-function mapAuditArea(entityType: string | null): AuditArea {
-  const t = (entityType ?? "").toLowerCase();
-  if (t.includes("user")) return "users";
-  if (t.includes("kyc") || t.includes("compliance")) return "compliance";
+/** Derive severity from action — AuditEvent has no severity column. */
+export function mapAuditSeverity(action: string, entityType?: string | null): AuditSeverity {
+  const a = action.toLowerCase();
+  const e = (entityType ?? "").toLowerCase();
+
+  // Money movement, access lockdown, privileged admin changes.
+  if (
+    /frozen|unfrozen|withdrawal\.(successful|declined)|placement\.admin_early_mature|adjustment\.approved|admin\.(removed|password_reset|2fa_reset)|rate\.(approved|applied|decide)|roles\.permissions_updated/.test(
+      a,
+    ) ||
+    (a.includes("rate") && /approv|reject|apply|decide/.test(a))
+  ) {
+    return "critical";
+  }
+  if (e.includes("withdrawal") && /success|decline|payout/.test(a)) return "critical";
+
+  // Config / catalogue / maker steps that need awareness but aren't immediate money risk.
+  if (
+    /product\.(created|updated)|campaign\.(created|sent)|feed\.|digest\.|referral\.rules|adjustment\.(submitted|rejected)|rate\.propose|admin\.(created|updated|onboard)|user\.admin_onboard|user\.session\.revoked|recon\.|aml\.|settings\.updated|placement\.admin_create|placement\.admin_call|support\.ticket\.created/.test(
+      a,
+    )
+  ) {
+    return "notice";
+  }
+
+  return "info";
+}
+
+function mapAuditArea(entityType: string | null, action?: string): AuditArea {
+  const t = `${entityType ?? ""} ${action ?? ""}`.toLowerCase();
+  if (t.includes("login") || t.includes("password") || t.includes("pin") || t.includes("2fa")) {
+    return "auth";
+  }
   if (t.includes("withdraw")) return "withdrawals";
+  if (t.includes("kyc") || t.includes("compliance") || t.includes("aml") || t.includes("frozen")) {
+    return "compliance";
+  }
   if (t.includes("rate")) return "rates";
-  if (t.includes("product")) return "products";
-  if (t.includes("market")) return "marketing";
+  if (t.includes("product") || t.includes("placement") || t.includes("adjustment")) return "products";
+  if (t.includes("recon")) return "reconciliation";
+  if (t.includes("market") || t.includes("campaign") || t.includes("feed") || t.includes("digest") || t.includes("referral")) {
+    return "marketing";
+  }
+  if (t.includes("user") || t.includes("session")) return "users";
   return "console";
 }
 
