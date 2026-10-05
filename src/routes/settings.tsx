@@ -45,6 +45,22 @@ export const Route = createFileRoute("/settings")({
 const TABS = ["Fees", "Limits", "Cut-off times", "Support", "Maintenance", "Feature flags"] as const;
 type Tab = (typeof TABS)[number];
 
+/** Convert ISO → value for <input type="datetime-local"> (browser local). */
+function toLocalDateTimeInput(iso?: string | null) {
+  if (!iso) return "";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "";
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+function fromLocalDateTimeInput(value: string): string | null {
+  const v = value.trim();
+  if (!v) return null;
+  const d = new Date(v);
+  return Number.isNaN(d.getTime()) ? null : d.toISOString();
+}
+
 function validateNumericRows(rows: FeeSetting[], label: string) {
   for (const row of rows) {
     const n = Number(String(row.value).replace(/,/g, ""));
@@ -81,7 +97,8 @@ function SystemSettingsPage() {
   const [maintenance, setMaintenance] = useState<MaintenanceSettings>({
     enabled: false,
     message: "",
-    window: "",
+    windowStart: "",
+    windowEnd: "",
   });
   const [support, setSupport] = useState({
     phone: "+2347000547480",
@@ -99,11 +116,12 @@ function SystemSettingsPage() {
       setLimits(data.limits.map((r) => ({ ...r })));
       setCutoffs(data.cutoffs.map((r) => ({ ...r })));
       setFlags(data.flags.map((f) => ({ ...f })));
-      setMaintenance((m) => ({
+      setMaintenance({
         enabled: data.maintenance.enabled,
         message: data.maintenance.message,
-        window: m.window,
-      }));
+        windowStart: toLocalDateTimeInput(data.maintenance.windowStart),
+        windowEnd: toLocalDateTimeInput(data.maintenance.windowEnd),
+      });
       if (data.support) {
         setSupport({
           phone: data.support.phone || "+2347000547480",
@@ -120,7 +138,12 @@ function SystemSettingsPage() {
       limits: FeeSetting[];
       cutoffs: FeeSetting[];
       flags: FeatureFlag[];
-      maintenance: { enabled: boolean; message: string };
+      maintenance: {
+        enabled: boolean;
+        message: string;
+        windowStart?: string | null;
+        windowEnd?: string | null;
+      };
       support: { phone: string; whatsapp: string; email: string };
     }>,
     successMessage: string,
@@ -132,11 +155,12 @@ function SystemSettingsPage() {
       setLimits(next.limits.map((r) => ({ ...r })));
       setCutoffs(next.cutoffs.map((r) => ({ ...r })));
       setFlags(next.flags.map((f) => ({ ...f })));
-      setMaintenance((m) => ({
+      setMaintenance({
         enabled: next.maintenance.enabled,
         message: next.maintenance.message,
-        window: m.window,
-      }));
+        windowStart: toLocalDateTimeInput(next.maintenance.windowStart),
+        windowEnd: toLocalDateTimeInput(next.maintenance.windowEnd),
+      });
       if (next.support) {
         setSupport({
           phone: next.support.phone || "",
@@ -375,26 +399,60 @@ function SystemSettingsPage() {
               </label>
               <label className="block">
                 <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
-                  Scheduled window
+                  Schedule starts
                 </span>
                 <input
-                  value={maintenance.window}
-                  onChange={(e) => setMaintenance((m) => ({ ...m, window: e.target.value }))}
+                  type="datetime-local"
+                  value={maintenance.windowStart}
+                  onChange={(e) => setMaintenance((m) => ({ ...m, windowStart: e.target.value }))}
                   className="mt-1 w-full rounded-lg border border-border bg-card px-3 py-2 text-[13.5px] font-semibold outline-none transition focus:border-brand"
                 />
               </label>
+              <label className="block">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+                  Schedule ends
+                </span>
+                <input
+                  type="datetime-local"
+                  value={maintenance.windowEnd}
+                  onChange={(e) => setMaintenance((m) => ({ ...m, windowEnd: e.target.value }))}
+                  className="mt-1 w-full rounded-lg border border-border bg-card px-3 py-2 text-[13.5px] font-semibold outline-none transition focus:border-brand"
+                />
+              </label>
+              <p className="sm:col-span-2 text-[12px] text-muted-foreground">
+                During this window the platform is treated as in maintenance automatically (Lagos/local
+                browser time). Clear both fields to remove the schedule. Manual Turn on still works
+                anytime.
+              </p>
             </div>
 
             <div className="mt-4 flex justify-end">
               <button
                 type="button"
                 disabled={saving}
-                onClick={() =>
+                onClick={() => {
+                  const startIso = fromLocalDateTimeInput(maintenance.windowStart);
+                  const endIso = fromLocalDateTimeInput(maintenance.windowEnd);
+                  if ((startIso && !endIso) || (!startIso && endIso)) {
+                    toast.error("Set both schedule start and end, or clear both");
+                    return;
+                  }
+                  if (startIso && endIso && Date.parse(endIso) < Date.parse(startIso)) {
+                    toast.error("Schedule end must be after start");
+                    return;
+                  }
                   void save(
-                    { maintenance: { enabled: maintenance.enabled, message: maintenance.message } },
+                    {
+                      maintenance: {
+                        enabled: maintenance.enabled,
+                        message: maintenance.message,
+                        windowStart: startIso,
+                        windowEnd: endIso,
+                      },
+                    },
                     "Maintenance settings saved",
-                  )
-                }
+                  );
+                }}
                 className="rounded-lg bg-brand px-4 py-2 text-[13px] font-bold text-primary-foreground transition hover:opacity-90"
               >
                 Save
