@@ -44,8 +44,10 @@ import {
   INTEREST_ACCRUED,
   INTEREST_PAYABLE,
   INTEREST_TREND,
+  INTEREST_TREND_UNIT,
   MATURITIES,
   MATURITY_SCHEDULE,
+  MATURITY_SCHEDULE_UNIT,
   METRIC_SPARKS,
   PRIMARY_METRICS,
   PRINCIPAL_BY_PRODUCT,
@@ -82,6 +84,17 @@ const tooltipStyle = {
 } as const;
 
 const axisTick = { fill: "var(--muted-foreground)", fontSize: 10, fontWeight: 600 } as const;
+
+function formatChartValue(v: number, unitLabel: string) {
+  const n = Number(v);
+  if (unitLabel.includes("million")) {
+    return `₦${n.toLocaleString("en-NG", { maximumFractionDigits: 2 })}m`;
+  }
+  if (unitLabel.includes("thousand")) {
+    return `₦${n.toLocaleString("en-NG", { maximumFractionDigits: 2 })}k`;
+  }
+  return `₦${n.toLocaleString("en-NG")}`;
+}
 
 const LABELS: Record<string, string> = {
   fixed: "Fixed plans",
@@ -425,7 +438,7 @@ function AdminDashboard() {
             <h2 className="font-display text-[15px] font-extrabold tracking-[-0.01em]">
               Interest accrued vs paid
             </h2>
-            <p className="mt-1 text-[12px] text-muted-foreground">Monthly, ₦ millions.</p>
+            <p className="mt-1 text-[12px] text-muted-foreground">Monthly, {INTEREST_TREND_UNIT}.</p>
             <div className="mt-4 h-[190px]">
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={INTEREST_TREND} margin={{ top: 4, right: 4, bottom: 0, left: -12 }}>
@@ -434,7 +447,10 @@ function AdminDashboard() {
                   <YAxis tickLine={false} axisLine={false} tick={axisTick} width={46} />
                   <Tooltip
                     contentStyle={tooltipStyle}
-                    formatter={(v: number, n: string) => [`₦${v}m`, labelOf(n)]}
+                    formatter={(v: number, n: string) => [
+                      formatChartValue(v, INTEREST_TREND_UNIT),
+                      labelOf(n),
+                    ]}
                   />
                   <Line
                     type="monotone"
@@ -460,7 +476,9 @@ function AdminDashboard() {
             <h2 className="font-display text-[15px] font-extrabold tracking-[-0.01em]">
               Maturities due
             </h2>
-            <p className="mt-1 text-[12px] text-muted-foreground">Next six weeks, ₦ millions.</p>
+            <p className="mt-1 text-[12px] text-muted-foreground">
+              This week and next five, {MATURITY_SCHEDULE_UNIT}.
+            </p>
             <div className="mt-4 h-[190px]">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={MATURITY_SCHEDULE} margin={{ top: 4, right: 4, bottom: 0, left: -12 }}>
@@ -470,7 +488,7 @@ function AdminDashboard() {
                   <Tooltip
                     cursor={{ fill: "var(--muted)" }}
                     contentStyle={tooltipStyle}
-                    formatter={(v: number) => [`₦${v}m`, "Maturing"]}
+                    formatter={(v: number) => [formatChartValue(v, MATURITY_SCHEDULE_UNIT), "Maturing"]}
                   />
                   <Bar dataKey="value" radius={[5, 5, 0, 0]} maxBarSize={26}>
                     {MATURITY_SCHEDULE.map((row, i) => (

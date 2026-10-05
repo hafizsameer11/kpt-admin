@@ -110,12 +110,14 @@ export async function hydrateAdminDashboardFromApi() {
         withdrawals: 0,
       })),
       fetchAdminFlowTrend().catch(() => [] as { day: string; deposits: number; withdrawals: number }[]),
-      fetchAdminInterestTrend().catch(
-        () => [] as { month: string; accrued: number; paid: number; accruedNaira?: number; paidNaira?: number }[],
-      ),
-      fetchAdminMaturitySchedule().catch(
-        () => [] as { week: string; value: number; valueNaira?: number }[],
-      ),
+      fetchAdminInterestTrend().catch(() => ({
+        scale: { divisor: 1_000_000, unit: "millions", label: "₦ millions" },
+        series: [] as { month: string; accrued: number; paid: number; accruedNaira?: number; paidNaira?: number }[],
+      })),
+      fetchAdminMaturitySchedule().catch(() => ({
+        scale: { divisor: 1_000_000, unit: "millions", label: "₦ millions" },
+        series: [] as { week: string; value: number; valueNaira?: number }[],
+      })),
       fetchAdminPrincipalByTenor().catch(() => [] as typeof PRINCIPAL_BY_TENOR),
       fetchAdminPrincipalByProduct().catch(() => [] as typeof PRINCIPAL_BY_PRODUCT),
     ]);
@@ -141,25 +143,27 @@ export async function hydrateAdminDashboardFromApi() {
         })),
       );
     }
-    if (interestTrend.length) {
+    if (interestTrend.series.length) {
+      INTEREST_TREND_UNIT = interestTrend.scale.label;
       INTEREST_TREND.splice(
         0,
         INTEREST_TREND.length,
-        ...interestTrend.map((row) => ({
+        ...interestTrend.series.map((row) => ({
           month: row.month,
           accrued: row.accrued,
           paid: row.paid,
         })),
       );
-      const latest = interestTrend[interestTrend.length - 1];
-      INTEREST_ACCRUED = latest?.accruedNaira ?? Math.round((latest?.accrued ?? 0) * 1_000_000);
-      INTEREST_PAYABLE = latest?.paidNaira ?? Math.round((latest?.paid ?? 0) * 1_000_000);
+      const latest = interestTrend.series[interestTrend.series.length - 1];
+      INTEREST_ACCRUED = latest?.accruedNaira ?? Math.round((latest?.accrued ?? 0) * interestTrend.scale.divisor);
+      INTEREST_PAYABLE = latest?.paidNaira ?? Math.round((latest?.paid ?? 0) * interestTrend.scale.divisor);
     }
-    if (maturitySchedule.length) {
+    if (maturitySchedule.series.length) {
+      MATURITY_SCHEDULE_UNIT = maturitySchedule.scale.label;
       MATURITY_SCHEDULE.splice(
         0,
         MATURITY_SCHEDULE.length,
-        ...maturitySchedule.map((row) => ({
+        ...maturitySchedule.series.map((row) => ({
           week: row.week,
           value: row.value,
         })),
@@ -354,14 +358,17 @@ export const FLOW_TREND = [
   { day: "Thu", deposits: 0, withdrawals: 0 },
 ];
 
-/** Interest accrued vs paid out, ₦m per month. */
+export let INTEREST_TREND_UNIT = "₦ millions";
+export let MATURITY_SCHEDULE_UNIT = "₦ millions";
+
+/** Interest accrued vs paid out (scale adapts: millions / thousands / naira). */
 export const INTEREST_TREND = FUM_LABELS.map((month) => ({
   month,
   accrued: 0,
   paid: 0,
 }));
 
-/** Maturities due, ₦m per week. */
+/** Maturities due (scale adapts). */
 export const MATURITY_SCHEDULE = [
   { week: "W1", value: 0 },
   { week: "W2", value: 0 },
