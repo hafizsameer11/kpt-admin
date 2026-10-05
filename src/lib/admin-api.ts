@@ -546,6 +546,7 @@ export type AdminTicketRow = {
   subject: string;
   body: string;
   status: string;
+  priority?: string;
   attachmentUrl?: string | null;
   attachmentName?: string | null;
   assigneeAdminId?: string | null;
@@ -583,6 +584,7 @@ export async function updateAdminTicket(
   id: string,
   input: {
     status?: string;
+    priority?: "urgent" | "high" | "normal" | "low";
     adminNote?: string;
     reply?: string;
     /** Team admin id — null clears. */

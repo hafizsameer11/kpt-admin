@@ -27,6 +27,7 @@ import {
   ticketById,
   type SupportTicket,
   type TicketMessage,
+  type TicketPriority,
   type TicketStatus,
 } from "@/lib/admin-support-data";
 import {
@@ -45,6 +46,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+
+const PRIORITY_OPTIONS: TicketPriority[] = ["urgent", "high", "normal", "low"];
 
 export const Route = createFileRoute("/support_/$ticketId")({
   head: () => ({
@@ -193,6 +196,8 @@ function TicketDetailPage() {
   const [messages, setMessages] = useState<TicketMessage[]>([]);
   const [reply, setReply] = useState("");
   const [status, setStatus] = useState<TicketStatus>("open");
+  const [priority, setPriority] = useState<TicketPriority>("normal");
+  const [priorityBusy, setPriorityBusy] = useState(false);
   const [assignee, setAssignee] = useState("Unassigned");
   const [assigneeAdminId, setAssigneeAdminId] = useState<string | null>(null);
   const [assignOpen, setAssignOpen] = useState(false);
@@ -231,6 +236,7 @@ function TicketDetailPage() {
     if (!ticket) return;
     setMessages(ticket.messages);
     setStatus(ticket.status);
+    setPriority(ticket.priority);
     setAssignee(ticket.assignee);
     setAssigneeAdminId(ticket.assigneeAdminId ?? null);
   }, [ticket]);
@@ -366,11 +372,37 @@ function TicketDetailPage() {
         <span className={`rounded-full px-2.5 py-1 text-[11px] font-bold ring-1 ${TICKET_STATUS_TONE[status]}`}>
           {TICKET_STATUS_LABEL[status]}
         </span>
-        <span
-          className={`rounded-full px-2.5 py-1 text-[11px] font-bold capitalize ring-1 ${PRIORITY_TONE[ticket.priority]}`}
-        >
-          {ticket.priority} priority
-        </span>
+        <label className="inline-flex items-center gap-1.5">
+          <span className="sr-only">Priority</span>
+          <select
+            value={priority}
+            disabled={priorityBusy}
+            onChange={(e) => {
+              const next = e.target.value as TicketPriority;
+              const prev = priority;
+              setPriority(next);
+              setPriorityBusy(true);
+              void updateAdminTicket(ticket.id, { priority: next })
+                .then(async () => {
+                  const refreshed = await fetchAdminTicket(ticket.id);
+                  setTicket(mapSupportTicket(refreshed));
+                  toast.success(`Priority set to ${next}`);
+                })
+                .catch((err) => {
+                  setPriority(prev);
+                  toast.error(err instanceof Error ? err.message : "Could not update priority");
+                })
+                .finally(() => setPriorityBusy(false));
+            }}
+            className={`rounded-full border-0 py-1 pl-2.5 pr-7 text-[11px] font-bold capitalize ring-1 outline-none disabled:opacity-50 ${PRIORITY_TONE[priority]}`}
+          >
+            {PRIORITY_OPTIONS.map((p) => (
+              <option key={p} value={p}>
+                {p} priority
+              </option>
+            ))}
+          </select>
+        </label>
         <span className="rounded-full bg-muted px-2.5 py-1 text-[11px] font-bold text-muted-foreground ring-1 ring-border">
           {CATEGORY_LABEL[ticket.category]}
         </span>
