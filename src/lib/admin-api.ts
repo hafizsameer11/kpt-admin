@@ -437,6 +437,10 @@ export async function fetchAdminRates() {
       maxDays: number | null;
       rateBps: number;
       effectiveFrom: string;
+      previousBps?: number | null;
+      scheduledBps?: number | null;
+      scheduledFrom?: string | null;
+      status?: "active" | "scheduled" | string;
       placements?: number;
       principal?: number;
     }[]
