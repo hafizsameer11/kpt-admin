@@ -385,33 +385,63 @@ export function mapRateBand(
     principal?: number;
   },
 ): RateBand {
-  const rate = row.rateBps / 100;
+  const liveRate = row.rateBps / 100;
   const previous =
-    row.previousBps != null ? row.previousBps / 100 : rate;
+    row.previousBps != null ? row.previousBps / 100 : liveRate;
   const maxDays = row.maxDays ?? row.minDays;
   const band = rateBandTenorLabel(row.code, row.minDays, row.maxDays);
   const status: RateStatus =
-    row.status === "scheduled" || row.scheduledBps != null ? "scheduled" : "active";
+    row.status === "pending" || row.pendingBps != null
+      ? "pending"
+      : row.status === "scheduled" || row.scheduledBps != null
+        ? "scheduled"
+        : row.status === "retired"
+          ? "retired"
+          : "active";
+  const pendingRate = row.pendingBps != null ? row.pendingBps / 100 : null;
+  const scheduledRate = row.scheduledBps != null ? row.scheduledBps / 100 : null;
+  const currentRate =
+    status === "pending" && pendingRate != null
+      ? pendingRate
+      : status === "scheduled" && scheduledRate != null
+        ? scheduledRate
+        : liveRate;
+  const previousRate =
+    status === "pending" || status === "scheduled" ? liveRate : previous;
   const history =
-    row.scheduledBps != null && row.scheduledFrom
+    row.pendingBps != null && row.pendingFrom
       ? [
           {
-            rate: row.scheduledBps / 100,
-            effectiveDate: row.scheduledFrom,
+            rate: row.pendingBps / 100,
+            effectiveDate: row.pendingFrom,
             by: "—",
-            note: "Approved — applies on effective date",
+            note: "Awaiting second approver",
           },
         ]
-      : [];
+      : row.scheduledBps != null && row.scheduledFrom
+        ? [
+            {
+              rate: row.scheduledBps / 100,
+              effectiveDate: row.scheduledFrom,
+              by: "—",
+              note: "Approved — applies on effective date",
+            },
+          ]
+        : [];
   return {
     id: row.id,
     band,
     product: rateBandProductLabel(row.code),
     minDays: row.minDays,
     maxDays: maxDays,
-    currentRate: rate,
-    previousRate: previous,
-    effectiveDate: row.effectiveFrom.slice(0, 10),
+    currentRate,
+    previousRate,
+    effectiveDate:
+      status === "pending" && row.pendingFrom
+        ? row.pendingFrom
+        : status === "scheduled" && row.scheduledFrom
+          ? row.scheduledFrom
+          : row.effectiveFrom.slice(0, 10),
     status,
     minimum: minimumForRateBand(row.code, row.minDays),
     placements: row.placements ?? 0,
