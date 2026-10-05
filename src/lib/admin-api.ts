@@ -1193,6 +1193,18 @@ export async function fetchAdminFlowTrend() {
   );
 }
 
+export async function fetchAdminInterestTrend() {
+  return adminApi<
+    { month: string; accrued: number; paid: number; accruedNaira?: number; paidNaira?: number }[]
+  >("/v1/admin/dashboard/interest-trend");
+}
+
+export async function fetchAdminMaturitySchedule() {
+  return adminApi<
+    { week: string; value: number; valueNaira?: number; from?: string; to?: string }[]
+  >("/v1/admin/dashboard/maturity-schedule");
+}
+
 export async function fetchAdminPrincipalByTenor() {
   return adminApi<{ band: string; value: number; rate: string }[]>(
     "/v1/admin/dashboard/principal-by-tenor",
