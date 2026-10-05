@@ -219,7 +219,10 @@ function CreateCampaignPage() {
                       subject: title.trim(),
                       body: content.trim(),
                       audience: segment.name,
-                      channel: "push",
+                      audienceId: segment.id,
+                      channel,
+                      cta: cta.trim() || "Open Kipit",
+                      deepLink,
                       status: "draft",
                     });
                     toast.success("Campaign saved as draft");
@@ -271,17 +274,24 @@ function CreateCampaignPage() {
                 void (async () => {
                   try {
                     const { createAdminCampaign } = await import("@/lib/admin-api");
-                    await createAdminCampaign({
+                    const created = await createAdminCampaign({
                       name: title.trim() || "Untitled campaign",
                       subject: title.trim(),
                       body: content.trim(),
                       audience: segment.name,
-                      channel: "push",
+                      audienceId: segment.id,
+                      channel,
+                      cta: cta.trim() || "Open Kipit",
+                      deepLink,
                       status: "scheduled",
                       scheduledAt: new Date().toISOString(),
                     });
                     setConfirmOpen(false);
-                    toast.success("Campaign scheduled");
+                    toast.success(
+                      created.status === "sent"
+                        ? `Campaign sent to ${created.delivered ?? 0} devices`
+                        : "Campaign scheduled",
+                    );
                     navigate({ to: "/marketing/campaigns" });
                   } catch (err) {
                     toast.error(err instanceof Error ? err.message : "Could not schedule");
