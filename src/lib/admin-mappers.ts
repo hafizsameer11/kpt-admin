@@ -888,12 +888,47 @@ function mapChatIntent(content: string): ChatIntent {
   return "unsupported";
 }
 
-function mapChatOutcome(messageCount: number, sample: string): ChatOutcome {
-  if (messageCount <= 2) return "abandoned";
-  const t = sample.toLowerCase();
-  if (/ticket|escalat|unacceptable|support/.test(t)) return "escalated";
-  if (/set it up|open|continue|invest for me|handoff|secure/.test(t)) return "handoff";
-  return "resolved";
+function mapChatOutcomeFromBlocks(
+  messageCount: number,
+  flagged: boolean | undefined,
+  messages: { role?: string; content?: string; blocks?: unknown }[],
+): { outcome: ChatOutcome; handoffTo?: string } {
+  const handoffs: { label: string; to: string }[] = [];
+  for (const m of messages) {
+    if (!Array.isArray(m.blocks)) continue;
+    for (const raw of m.blocks) {
+      if (!raw || typeof raw !== "object") continue;
+      const b = raw as Record<string, unknown>;
+      if (String(b.kind) !== "handoff" || typeof b.to !== "string") continue;
+      handoffs.push({
+        label: typeof b.label === "string" && b.label.trim() ? b.label.trim() : "Continue",
+        to: b.to,
+      });
+    }
+  }
+  const isSupport = (to: string) => /\/settings\/help|ticket/i.test(to);
+  const support = handoffs.find((h) => isSupport(h.to));
+  const journey = handoffs.find((h) => !isSupport(h.to));
+  const joined = messages.map((m) => m.content || "").join(" ").toLowerCase();
+  const textEscalated =
+    /support ticket (received|opened|logged|created)|i'?ve (filed|opened|created|logged) a (support )?ticket|we'?ve logged/.test(
+      joined,
+    );
+  if (support || textEscalated || flagged) {
+    return { outcome: "escalated", handoffTo: support?.label ?? "Support ticket" };
+  }
+  if (journey) {
+    return { outcome: "handoff", handoffTo: journey.label };
+  }
+  if (messageCount <= 2) return { outcome: "abandoned" };
+  return { outcome: "resolved" };
+}
+
+function normalizeChatOutcome(
+  raw: string | null | undefined,
+): ChatOutcome | null {
+  if (raw === "resolved" || raw === "handoff" || raw === "abandoned" || raw === "escalated") return raw;
+  return null;
 }
 
 export function mapChatSessionListItem(
@@ -901,7 +936,8 @@ export function mapChatSessionListItem(
 ): ChatSession {
   const sample = row.firstUserMessage || row.lastMessage || "";
   const turns = row.messageCount ?? (row.lastMessage ? 2 : 1);
-  const outcome = mapChatOutcome(turns, sample);
+  const fromApi = normalizeChatOutcome(row.outcome);
+  const outcome = fromApi ?? mapChatOutcomeFromBlocks(turns, row.flagged, []).outcome;
   return {
     id: row.id,
     ref: row.id.slice(0, 8).toUpperCase(),
@@ -917,6 +953,7 @@ export function mapChatSessionListItem(
     turns,
     topIntent: mapChatIntent(sample),
     outcome,
+    handoffTo: row.handoffTo ?? undefined,
     flagged: Boolean(row.flagged) || outcome === "escalated",
     transcript: row.lastMessage
       ? [
@@ -947,7 +984,11 @@ export function mapChatSessionDetail(
     return base;
   });
   const sample = row.messages.find((m) => m.role === "user")?.content ?? "";
-  const outcome = mapChatOutcome(row.messages.length, sample);
+  const fromApi = normalizeChatOutcome(row.outcome);
+  const classified =
+    fromApi != null
+      ? { outcome: fromApi, handoffTo: row.handoffTo ?? undefined }
+      : mapChatOutcomeFromBlocks(row.messages.length, row.flagged, row.messages);
   return {
     id: row.id,
     ref: row.id.slice(0, 8).toUpperCase(),
@@ -961,8 +1002,9 @@ export function mapChatSessionDetail(
     duration: "—",
     turns: row.messages.length,
     topIntent: mapChatIntent(sample),
-    outcome,
-    flagged: Boolean(row.flagged) || outcome === "escalated",
+    outcome: classified.outcome,
+    handoffTo: classified.handoffTo,
+    flagged: Boolean(row.flagged) || classified.outcome === "escalated",
     transcript,
   };
 }
