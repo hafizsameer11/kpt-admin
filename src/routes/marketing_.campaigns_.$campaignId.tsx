@@ -13,7 +13,7 @@ import {
   hydrateAdminCampaignsFromApi,
   type Campaign,
 } from "@/lib/admin-marketing-data";
-import { updateAdminCampaign } from "@/lib/admin-api";
+import { sendAdminCampaign, updateAdminCampaign } from "@/lib/admin-api";
 
 export const Route = createFileRoute("/marketing_/campaigns_/$campaignId")({
   head: () => ({
@@ -126,8 +126,14 @@ function CampaignDetailPage() {
               <button
                 type="button"
                 onClick={() => {
-                  void updateAdminCampaign(campaign.id, { status: "sending" })
-                    .then(() => toast.success("Campaign queued to send now"))
+                  void sendAdminCampaign(campaign.id)
+                    .then(async (result) => {
+                      await hydrateAdminCampaignsFromApi();
+                      setCampaign(findCampaign(campaign.id));
+                      toast.success(
+                        `Sent to ${result.delivered} of ${result.recipients} customers`,
+                      );
+                    })
                     .catch((err) =>
                       toast.error(err instanceof Error ? err.message : "Could not send"),
                     );

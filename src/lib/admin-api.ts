@@ -775,24 +775,53 @@ export async function createAdminCampaign(input: {
   name: string;
   channel?: string;
   audience?: string;
+  audienceId?: string;
   subject: string;
   body: string;
+  cta?: string;
+  deepLink?: string;
   status?: string;
   scheduledAt?: string | null;
 }) {
-  return adminApi<{ id: string; name: string; status: string }>("/v1/admin/campaigns", {
-    method: "POST",
-    body: JSON.stringify(input),
-  });
+  return adminApi<{ id: string; name: string; status: string; delivered?: number; recipients?: number }>(
+    "/v1/admin/campaigns",
+    {
+      method: "POST",
+      body: JSON.stringify(input),
+    },
+  );
 }
 
 export async function updateAdminCampaign(
   id: string,
-  input: { status?: string; name?: string; subject?: string; body?: string },
+  input: {
+    status?: string;
+    name?: string;
+    subject?: string;
+    body?: string;
+    cta?: string;
+    deepLink?: string;
+  },
 ) {
-  return adminApi<{ id: string; status: string }>(`/v1/admin/campaigns/${id}`, {
-    method: "PATCH",
-    body: JSON.stringify(input),
+  return adminApi<{ id: string; status: string; delivered?: number; reach?: number }>(
+    `/v1/admin/campaigns/${id}`,
+    {
+      method: "PATCH",
+      body: JSON.stringify(input),
+    },
+  );
+}
+
+export async function sendAdminCampaign(id: string) {
+  return adminApi<{
+    id: string;
+    status: string;
+    channel: string;
+    recipients: number;
+    delivered: number;
+  }>(`/v1/admin/campaigns/${id}/send`, {
+    method: "POST",
+    body: JSON.stringify({}),
   });
 }
 
