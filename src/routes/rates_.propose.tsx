@@ -8,6 +8,7 @@ import { Panel } from "@/components/kipit/AdminBits";
 import { compactNaira } from "@/lib/admin-data";
 import { proposeAdminRate } from "@/lib/admin-api";
 import { hydrateAdminRatesFromApi, type RateBand } from "@/lib/admin-rates-data";
+import { adminCanAccess, hydrateAdminPermissionsFromApi } from "@/lib/admin-permissions";
 
 function isoToday() {
   return new Date().toISOString().slice(0, 10);
@@ -41,6 +42,7 @@ function ProposeRatePage() {
   const { band } = Route.useSearch();
   const navigate = useNavigate();
 
+  const [allowed, setAllowed] = useState<boolean | null>(null);
   const [bands, setBands] = useState<RateBand[]>([]);
   const [bandId, setBandId] = useState(band);
   const [rate, setRate] = useState("");
@@ -48,6 +50,14 @@ function ProposeRatePage() {
   const [reason, setReason] = useState("");
   const [touched, setTouched] = useState(false);
   const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    void hydrateAdminPermissionsFromApi().then(() => {
+      const ok = adminCanAccess("rate.propose");
+      setAllowed(ok);
+      if (!ok) toast.error("Your role cannot propose rate changes");
+    });
+  }, []);
 
   useEffect(() => {
     void hydrateAdminRatesFromApi().then((loaded) => {
@@ -67,6 +77,24 @@ function ProposeRatePage() {
   const todayIso = new Date().toISOString().slice(0, 10);
   const validDate = effectiveDate !== "" && effectiveDate >= todayIso;
   const canSubmit = validRate && validDate && reason.trim().length >= 10 && selected;
+
+  if (allowed === false) {
+    return (
+      <AdminShell title="Propose rate change" subtitle="Restricted">
+        <Panel className="p-8 text-center">
+          <p className="text-[14px] text-muted-foreground">
+            Operations cannot propose rate changes. Ask a Finance or Global Admin operator.
+          </p>
+          <Link
+            to="/"
+            className="mt-4 inline-flex h-10 items-center rounded-lg bg-brand px-4 text-[13px] font-bold text-primary-foreground"
+          >
+            Back to dashboard
+          </Link>
+        </Panel>
+      </AdminShell>
+    );
+  }
 
   function submit() {
     setTouched(true);

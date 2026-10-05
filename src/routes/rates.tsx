@@ -13,6 +13,7 @@ import {
   type RateBand,
   type RateStatus,
 } from "@/lib/admin-rates-data";
+import { adminCanAccess, hydrateAdminPermissionsFromApi } from "@/lib/admin-permissions";
 
 export const Route = createFileRoute("/rates")({
   head: () => ({
@@ -50,9 +51,15 @@ function RateTablePage() {
   const [bands, setBands] = useState<RateBand[]>([]);
   const [tab, setTab] = useState<"all" | RateStatus>("all");
   const [query, setQuery] = useState("");
+  const [canPropose, setCanPropose] = useState(false);
+  const [canApprove, setCanApprove] = useState(false);
 
   useEffect(() => {
     void hydrateAdminRatesFromApi().then(setBands);
+    void hydrateAdminPermissionsFromApi().then(() => {
+      setCanPropose(adminCanAccess("rate.propose"));
+      setCanApprove(adminCanAccess("rate.approve"));
+    });
   }, []);
 
   const rows = useMemo(() => {
@@ -149,27 +156,31 @@ function RateTablePage() {
               />
             </label>
 
-            <Link
-              to="/rates/approvals"
-              className="inline-flex h-9 items-center gap-2 rounded-lg border border-border px-3 text-[12.5px] font-bold transition hover:border-brand/40 hover:text-brand"
-            >
-              <ClipboardCheck className="size-4" />
-              Approval queue
-              {totals.awaiting > 0 ? (
-                <span className="rounded-full bg-gold/30 px-1.5 text-[11px] font-bold text-gold-foreground">
-                  {totals.awaiting}
-                </span>
-              ) : null}
-            </Link>
+            {canApprove ? (
+              <Link
+                to="/rates/approvals"
+                className="inline-flex h-9 items-center gap-2 rounded-lg border border-border px-3 text-[12.5px] font-bold transition hover:border-brand/40 hover:text-brand"
+              >
+                <ClipboardCheck className="size-4" />
+                Approval queue
+                {totals.awaiting > 0 ? (
+                  <span className="rounded-full bg-gold/30 px-1.5 text-[11px] font-bold text-gold-foreground">
+                    {totals.awaiting}
+                  </span>
+                ) : null}
+              </Link>
+            ) : null}
 
-            <Link
-              to="/rates/propose"
-              search={{ band: "" }}
-              className="inline-flex h-9 items-center gap-2 rounded-lg bg-brand px-3 text-[12.5px] font-bold text-primary-foreground transition hover:opacity-90"
-            >
-              <TrendingUp className="size-4" />
-              Propose rate change
-            </Link>
+            {canPropose ? (
+              <Link
+                to="/rates/propose"
+                search={{ band: "" }}
+                className="inline-flex h-9 items-center gap-2 rounded-lg bg-brand px-3 text-[12.5px] font-bold text-primary-foreground transition hover:opacity-90"
+              >
+                <TrendingUp className="size-4" />
+                Propose rate change
+              </Link>
+            ) : null}
           </div>
 
           <div className="overflow-x-auto">
@@ -229,13 +240,17 @@ function RateTablePage() {
                         </span>
                       </td>
                       <td className="px-5 py-3 text-right">
-                        <Link
-                          to="/rates/propose"
-                          search={{ band: b.id }}
-                          className="rounded-lg border border-border px-2.5 py-1.5 text-[12px] font-bold transition hover:border-brand/40 hover:text-brand"
-                        >
-                          Propose change
-                        </Link>
+                        {canPropose ? (
+                          <Link
+                            to="/rates/propose"
+                            search={{ band: b.id }}
+                            className="rounded-lg border border-border px-2.5 py-1.5 text-[12px] font-bold transition hover:border-brand/40 hover:text-brand"
+                          >
+                            Propose change
+                          </Link>
+                        ) : (
+                          <span className="text-[12px] text-muted-foreground">—</span>
+                        )}
                       </td>
                     </tr>
                   );

@@ -74,6 +74,8 @@ export function unlockAdminSession() {
 }
 
 export async function endAdminSession() {
+  const { clearAdminPermissionsCache } = await import("@/lib/admin-permissions");
+  clearAdminPermissionsCache();
   await adminLogout();
   write(null);
   setAdminAccessToken(null);
