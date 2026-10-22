@@ -1,18 +1,8 @@
 # Kipit admin — DevOps
 
-## Branch rules
+Branch from `main` → PR → merge → deploy. PRs do not deploy.
 
-| Branch | Purpose |
-|---|---|
-| `main` | Production. VPS auto-deploys from here only. |
-| `feat/*`, `fix/*`, `chore/*` | Work branches. Open a PR into `main`. |
-
-## Remotes
-
-- `client` — **https://github.com/Kipitapp/kipit-admin.git**
-
-## Auto deploy
-
-Merge to `main` → GitHub Actions SSH → `scripts/deploy.sh`.
-
-Enable with variable `ENABLE_AUTO_DEPLOY=true` after VPS secrets are set.
+- **Remote:** `client` → https://github.com/Kipitapp/kipit-admin.git  
+- **Build output:** `.output` (Nitro node-server)  
+- **Server path:** `/var/www/admin`  
+- Full server steps: see backend `docs/SERVER_DEPLOY.md` on the Kipitapp backend repo.
