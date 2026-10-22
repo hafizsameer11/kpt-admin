@@ -8,7 +8,7 @@ const MFA_TOKEN_KEY = "kipit.admin.mfaToken";
 export const API_BASE =
   (typeof import.meta !== "undefined" &&
     (import.meta as { env?: { VITE_API_URL?: string } }).env?.VITE_API_URL) ||
-  "https://kipit-backend.amctraders.online";
+  "https://api.a-kipbackend.online";
 
 /** Rewrite stored upload URLs onto the API host the admin console actually uses. */
 export function resolveAdminUploadUrl(url: string | null | undefined): string {

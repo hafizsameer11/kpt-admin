@@ -14,7 +14,10 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      - run: npm run build
+      - name: Build
+        env:
+          VITE_API_URL: https://api.a-kipbackend.online
+        run: npm run build
       # Nitro node-server output (not Vite "dist")
       - run: tar -C .output -czf release.tar.gz .
       - name: Upload and deploy
