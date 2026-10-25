@@ -95,7 +95,15 @@ async function downloadEvidencePack(label: string) {
   }
 
   if (label === "Customer risk ratings") {
-    const users = await hydrateAdminUsersFromApi();
+    const users: Awaited<ReturnType<typeof hydrateAdminUsersFromApi>>["users"] = [];
+    let page = 1;
+    let totalPages = 1;
+    do {
+      const chunk = await hydrateAdminUsersFromApi({ page, pageSize: 100 });
+      users.push(...chunk.users);
+      totalPages = chunk.meta.totalPages;
+      page += 1;
+    } while (page <= totalPages);
     const n = downloadCsv(
       "kipit-customer-risk",
       ["ID", "Name", "Email", "Tier", "Status", "Portfolio"],

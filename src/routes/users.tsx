@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
-import { ChevronRight, Download, Plus, Search, SlidersHorizontal, Users2, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, Download, Plus, Search, SlidersHorizontal, Users2, X } from "lucide-react";
 
 import { AdminShell } from "@/components/kipit/AdminShell";
 import { Panel, StatusPill, TierPill } from "@/components/kipit/AdminBits";
@@ -48,6 +48,8 @@ export const Route = createFileRoute("/users")({
 type TierFilter = "all" | Tier;
 type StatusFilter = "all" | UserStatus;
 
+const PAGE_SIZE = 25;
+
 const TIER_OPTIONS: { value: TierFilter; label: string }[] = [
   { value: "all", label: "All tiers" },
   { value: 0, label: "Tier 0" },
@@ -66,46 +68,101 @@ const STATUS_OPTIONS: { value: StatusFilter; label: string }[] = [
 function AdminUserList() {
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [query, setQuery] = useState("");
+  const [debouncedQuery, setDebouncedQuery] = useState("");
   const [tier, setTier] = useState<TierFilter>("all");
   const [status, setStatus] = useState<StatusFilter>("all");
+  const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
+  const [summary, setSummary] = useState({
+    users: 0,
+    verified: 0,
+    pending: 0,
+    aum: null as number | null,
+  });
+  const [loading, setLoading] = useState(true);
   const [filtersOpen, setFiltersOpen] = useState(false);
   const showAum = canViewAum(getAdminSession()?.role);
 
   useEffect(() => {
-    void hydrateAdminUsersFromApi().then(setUsers);
-  }, []);
+    const t = window.setTimeout(() => setDebouncedQuery(query.trim()), 300);
+    return () => window.clearTimeout(t);
+  }, [query]);
 
-  const rows = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    return users.filter((u) => {
-      if (tier !== "all" && u.tier !== tier) return false;
-      if (status !== "all" && u.status !== status) return false;
-      if (!q) return true;
-      return [u.name, u.email, u.phone, u.id].some((f) => f.toLowerCase().includes(q));
+  useEffect(() => {
+    setPage(1);
+  }, [debouncedQuery, tier, status]);
+
+  useEffect(() => {
+    let alive = true;
+    setLoading(true);
+    void hydrateAdminUsersFromApi({
+      q: debouncedQuery || undefined,
+      tier,
+      status,
+      page,
+      pageSize: PAGE_SIZE,
+    }).then((res) => {
+      if (!alive) return;
+      setUsers(res.users);
+      setTotal(res.meta.total);
+      setTotalPages(res.meta.totalPages);
+      setSummary(res.meta.summary);
+      setLoading(false);
     });
-  }, [users, query, tier, status]);
+    return () => {
+      alive = false;
+    };
+  }, [debouncedQuery, tier, status, page]);
 
-  const totals = useMemo(
-    () => ({
-      users: users.length,
-      verified: users.filter((u) => u.tier === 2).length,
-      pending: users.filter((u) => u.status === "pending").length,
-      aum: users.reduce((s, u) => s + portfolioValue(u), 0),
-    }),
-    [users],
-  );
-
-  const filtered = tier !== "all" || status !== "all" || query.trim().length > 0;
-
+  const filtered = tier !== "all" || status !== "all" || debouncedQuery.length > 0;
   const maxValue = Math.max(...users.map((u) => portfolioValue(u)), 1);
-  const tierSplit = [0, 1, 2].map(
-    (t) => (users.length ? users.filter((u) => u.tier === t).length / users.length : 0),
-  );
+  const tierSplit = useMemo(() => {
+    // Approximate from current page when filtered; summary doesn't break down by tier.
+    const n = users.length || 1;
+    return [0, 1, 2].map((t) => users.filter((u) => u.tier === t).length / n);
+  }, [users]);
+
+  const rangeFrom = total === 0 ? 0 : (page - 1) * PAGE_SIZE + 1;
+  const rangeTo = Math.min(page * PAGE_SIZE, total);
+
+  async function exportAllMatching() {
+    toast.message("Preparing export…");
+    const rows: AdminUser[] = [];
+    let p = 1;
+    let pages = 1;
+    do {
+      const chunk = await hydrateAdminUsersFromApi({
+        q: debouncedQuery || undefined,
+        tier,
+        status,
+        page: p,
+        pageSize: 100,
+      });
+      rows.push(...chunk.users);
+      pages = chunk.meta.totalPages;
+      p += 1;
+    } while (p <= pages);
+    const n = downloadCsv(
+      "kipit-users",
+      ["Customer", "Email", "Phone", "Tier", "Status", ...(showAum ? ["Portfolio"] : []), "Joined", "ID"],
+      rows.map((u) => [
+        u.name,
+        u.email,
+        u.phone,
+        u.tier,
+        u.status,
+        ...(showAum ? [portfolioValue(u)] : []),
+        u.joined,
+        u.id,
+      ]),
+    );
+    toast.success(`Downloaded ${n} rows`);
+  }
 
   return (
     <AdminShell title="Users" subtitle="ADM-020 · Customer directory">
       <div className="space-y-5">
-        {/* Directory overview band */}
         <section className="relative overflow-hidden rounded-3xl bg-brand-gradient p-6 text-primary-foreground shadow-[0_24px_60px_-38px_rgba(11,29,58,0.9)]">
           <span className="pointer-events-none absolute -right-16 -top-24 size-72 rounded-full bg-gold/18 blur-3xl" />
           <span className="pointer-events-none absolute -bottom-28 left-1/3 size-72 rounded-full bg-white/8 blur-3xl" />
@@ -116,11 +173,11 @@ function AdminUserList() {
                 Customer directory
               </p>
               <p className="mt-1.5 font-display text-[30px] font-extrabold tracking-[-0.03em]">
-                {totals.users.toLocaleString("en-NG")} accounts
+                {summary.users.toLocaleString("en-NG")} accounts
               </p>
               <p className="text-[13px] text-primary-foreground/65">
-                {showAum ? `${compactNaira(totals.aum)} under management · ` : ""}
-                {totals.pending} awaiting verification
+                {showAum && summary.aum != null ? `${compactNaira(summary.aum)} under management · ` : ""}
+                {summary.pending} awaiting verification
               </p>
               <div className="mt-4 flex flex-wrap gap-2">
                 <Link
@@ -141,26 +198,32 @@ function AdminUserList() {
 
             <div className="grid flex-1 grid-cols-2 gap-x-8 gap-y-4 sm:max-w-[34rem] sm:grid-cols-3">
               {[
-                { label: "Tier 2 verified", value: `${totals.verified}`, helper: "Full withdrawal access" },
-                { label: "Awaiting KYC", value: `${totals.pending}`, helper: "Tier 0 · no funding yet" },
+                { label: "Tier 2 verified", value: `${summary.verified}`, helper: "Full withdrawal access" },
+                { label: "Awaiting KYC", value: `${summary.pending}`, helper: "Tier 0 · no funding yet" },
                 ...(showAum
-                  ? [{ label: "Customer AUM", value: compactNaira(totals.aum), helper: "Wallet + call + invested" }]
+                  ? [
+                      {
+                        label: "Customer AUM",
+                        value: summary.aum != null ? compactNaira(summary.aum) : "—",
+                        helper: "Wallet + call + invested",
+                      },
+                    ]
                   : [{ label: "Customer AUM", value: "Restricted", helper: "Super / Global / Ops only" }]),
               ].map((s) => (
-                <div key={s.label} className="border-l border-white/12 pl-4 first:border-l-0 first:pl-0 sm:border-l sm:pl-4 sm:first:pl-4">
+                <div
+                  key={s.label}
+                  className="border-l border-white/12 pl-4 first:border-l-0 first:pl-0 sm:border-l sm:pl-4 sm:first:pl-4"
+                >
                   <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-primary-foreground/50">
                     {s.label}
                   </p>
-                  <p className="mt-1 font-display text-[20px] font-extrabold tracking-[-0.02em]">
-                    {s.value}
-                  </p>
+                  <p className="mt-1 font-display text-[20px] font-extrabold tracking-[-0.02em]">{s.value}</p>
                   <p className="text-[11.5px] text-primary-foreground/55">{s.helper}</p>
                 </div>
               ))}
             </div>
           </div>
 
-          {/* Tier distribution meter */}
           <div className="relative mt-6">
             <div className="flex h-2 overflow-hidden rounded-full bg-white/12">
               {["bg-white/30", "bg-gold/70", "bg-gold"].map((tone, i) => (
@@ -176,6 +239,7 @@ function AdminUserList() {
                     }`}
                   />
                   {label} · {Math.round(tierSplit[i]! * 100)}%
+                  <span className="text-primary-foreground/40">(this page)</span>
                 </span>
               ))}
             </div>
@@ -184,7 +248,6 @@ function AdminUserList() {
 
         <Panel className="overflow-hidden">
           <div className="-m-5">
-            {/* Controls */}
             <div className="flex flex-wrap items-center gap-3 border-b border-border/60 bg-muted/25 px-5 py-4">
               <label className="flex min-w-[16rem] flex-1 items-center gap-2 rounded-xl border border-border bg-card px-3 py-2.5 shadow-sm transition focus-within:border-brand/50 focus-within:ring-2 focus-within:ring-brand/10">
                 <Search className="size-4 shrink-0 text-muted-foreground" />
@@ -241,23 +304,7 @@ function AdminUserList() {
 
               <button
                 type="button"
-                onClick={() => {
-                  const n = downloadCsv(
-                    "kipit-users",
-                    ["Customer", "Email", "Phone", "Tier", "Status", ...(showAum ? ["Portfolio"] : []), "Joined", "ID"],
-                    rows.map((u) => [
-                      u.name,
-                      u.email,
-                      u.phone,
-                      u.tier,
-                      u.status,
-                      ...(showAum ? [portfolioValue(u)] : []),
-                      u.joined,
-                      u.id,
-                    ]),
-                  );
-                  toast.success(`Downloaded ${n} rows`);
-                }}
+                onClick={() => void exportAllMatching()}
                 className="inline-flex items-center gap-2 rounded-xl border border-border bg-card px-3 py-2.5 text-[13px] font-semibold shadow-sm transition hover:bg-muted"
               >
                 <Download className="size-4" />
@@ -265,7 +312,6 @@ function AdminUserList() {
               </button>
             </div>
 
-            {/* Table */}
             <div className="overflow-x-auto">
               <table className="w-full min-w-[64rem] border-collapse text-left">
                 <thead>
@@ -280,7 +326,7 @@ function AdminUserList() {
                   </tr>
                 </thead>
                 <tbody>
-                  {rows.map((u) => {
+                  {users.map((u) => {
                     const value = portfolioValue(u);
                     return (
                       <tr
@@ -332,9 +378,7 @@ function AdminUserList() {
                           <StatusPill status={u.status} />
                         </td>
                         <td className="px-5 py-4">
-                          <span className="block text-[13.5px] font-bold tabular-nums">
-                            {naira(value)}
-                          </span>
+                          <span className="block text-[13.5px] font-bold tabular-nums">{naira(value)}</span>
                           <span className="mt-1.5 block h-1 w-28 overflow-hidden rounded-full bg-muted">
                             <span
                               className="block h-full rounded-full bg-brand/70"
@@ -359,7 +403,7 @@ function AdminUserList() {
                 </tbody>
               </table>
 
-              {rows.length === 0 ? (
+              {!loading && users.length === 0 ? (
                 <div className="grid place-items-center gap-2 px-5 py-16 text-center">
                   <Users2 className="size-8 text-muted-foreground" />
                   <p className="text-[14px] font-bold">No users match these filters</p>
@@ -376,26 +420,52 @@ function AdminUserList() {
                   </button>
                 </div>
               ) : null}
+
+              {loading ? (
+                <div className="px-5 py-10 text-center text-[13px] text-muted-foreground">Loading customers…</div>
+              ) : null}
             </div>
 
-            <div className="flex items-center justify-between gap-3 border-t border-border/60 bg-muted/20 px-5 py-3.5 text-[12px] text-muted-foreground">
+            <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border/60 bg-muted/20 px-5 py-3.5 text-[12px] text-muted-foreground">
               <span>
-                Showing {rows.length} of {users.length} users
-                {filtered ? " (filtered)" : ""}
+                Showing {rangeFrom}–{rangeTo} of {total.toLocaleString("en-NG")}
+                {filtered ? " matching" : ""} customers
               </span>
-              <span>Live directory</span>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  disabled={page <= 1 || loading}
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+                  className="inline-flex items-center gap-1 rounded-lg border border-border bg-card px-2.5 py-1.5 text-[12px] font-bold disabled:opacity-40"
+                >
+                  <ChevronLeft className="size-3.5" />
+                  Prev
+                </button>
+                <span className="tabular-nums">
+                  Page {page} of {totalPages}
+                </span>
+                <button
+                  type="button"
+                  disabled={page >= totalPages || loading}
+                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                  className="inline-flex items-center gap-1 rounded-lg border border-border bg-card px-2.5 py-1.5 text-[12px] font-bold disabled:opacity-40"
+                >
+                  Next
+                  <ChevronRight className="size-3.5" />
+                </button>
+              </div>
             </div>
           </div>
         </Panel>
       </div>
 
-
-      {/* Full filter dialog */}
       <Dialog open={filtersOpen} onOpenChange={setFiltersOpen}>
         <DialogContent className="sm:max-w-[26rem]">
           <DialogHeader>
             <DialogTitle>Filter users</DialogTitle>
-            <DialogDescription>Narrow the directory by verification tier and account status.</DialogDescription>
+            <DialogDescription>
+              Filters run on the full customer directory, not just the current page.
+            </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4">
@@ -460,7 +530,7 @@ function AdminUserList() {
                 onClick={() => setFiltersOpen(false)}
                 className="rounded-lg bg-brand px-4 py-2 text-[13px] font-bold text-primary-foreground"
               >
-                Show {rows.length} users
+                Show {total.toLocaleString("en-NG")} users
               </button>
             </div>
           </div>

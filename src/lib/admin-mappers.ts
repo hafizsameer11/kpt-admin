@@ -1061,8 +1061,8 @@ export function mapUserAuditEntry(row: AuditEntry, _userId: string): AdminAudit 
 
 export async function loadAdminUsers(q?: string): Promise<AdminUser[]> {
   try {
-    const rows = await fetchAdminUsers(q);
-    return rows.map(mapAdminUserListItem);
+    const res = await fetchAdminUsers(typeof q === "string" ? { q, pageSize: 100 } : { pageSize: 100 });
+    return (res.users ?? []).map(mapAdminUserListItem);
   } catch {
     return [];
   }

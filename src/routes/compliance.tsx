@@ -99,12 +99,13 @@ function Compliance() {
   const [cases, setCases] = useState<ComplianceCase[]>([]);
 
   useEffect(() => {
-    void Promise.all([hydrateAdminUsersFromApi(), hydrateAdminKycQueueFromApi()]).then(
-      ([users, kycCases]) => {
-        setPending(users.filter((u) => u.status === "pending").slice(0, 6));
-        setCases(kycCases);
-      },
-    );
+    void Promise.all([
+      hydrateAdminUsersFromApi({ status: "pending", pageSize: 6 }),
+      hydrateAdminKycQueueFromApi(),
+    ]).then(([usersPage, kycCases]) => {
+      setPending(usersPage.users.slice(0, 6));
+      setCases(kycCases);
+    });
   }, []);
 
   const awaiting = cases.filter((c) => c.status === "pending" || c.status === "in-review").length;

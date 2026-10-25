@@ -40,7 +40,9 @@ function FrozenAccounts() {
   const [users, setUsers] = useState<AdminUser[]>([]);
 
   useEffect(() => {
-    void hydrateAdminUsersFromApi().then(setUsers);
+    void hydrateAdminUsersFromApi({ status: "frozen", pageSize: 100 }).then((page) =>
+      setUsers(page.users),
+    );
   }, []);
 
   const frozen = useMemo(() => {

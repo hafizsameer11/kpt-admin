@@ -8,7 +8,7 @@ const MFA_TOKEN_KEY = "kipit.admin.mfaToken";
 export const API_BASE =
   (typeof import.meta !== "undefined" &&
     (import.meta as { env?: { VITE_API_URL?: string } }).env?.VITE_API_URL) ||
-  "https://kipit-backend.amctraders.online";
+  "https://api.a-kipbackend.online";
 
 /** Rewrite stored upload URLs onto the API host the admin console actually uses. */
 export function resolveAdminUploadUrl(url: string | null | undefined): string {
@@ -201,9 +201,40 @@ export type AdminUserListItem = {
   balances?: { wallet: number; call: number; fixed: number; explore: number };
 };
 
-export async function fetchAdminUsers(q?: string) {
-  const qs = q ? `?q=${encodeURIComponent(q)}` : "";
-  return adminApi<AdminUserListItem[]>(`/v1/admin/users${qs}`);
+export type AdminUsersListMeta = {
+  page: number;
+  pageSize: number;
+  total: number;
+  totalPages: number;
+  summary: {
+    users: number;
+    verified: number;
+    pending: number;
+    aum: number | null;
+  };
+};
+
+export type AdminUsersListParams = {
+  q?: string;
+  status?: string;
+  tier?: string | number;
+  page?: number;
+  pageSize?: number;
+};
+
+export async function fetchAdminUsers(params: AdminUsersListParams | string = {}) {
+  const p: AdminUsersListParams =
+    typeof params === "string" ? { q: params } : params ?? {};
+  const qs = new URLSearchParams();
+  if (p.q?.trim()) qs.set("q", p.q.trim());
+  if (p.status && p.status !== "all") qs.set("status", String(p.status));
+  if (p.tier !== undefined && p.tier !== "all" && p.tier !== "") qs.set("tier", String(p.tier));
+  if (p.page) qs.set("page", String(p.page));
+  if (p.pageSize) qs.set("pageSize", String(p.pageSize));
+  const query = qs.toString();
+  return adminApi<{ users: AdminUserListItem[]; meta: AdminUsersListMeta }>(
+    `/v1/admin/users${query ? `?${query}` : ""}`,
+  );
 }
 
 export async function createAdminUser(input: {
