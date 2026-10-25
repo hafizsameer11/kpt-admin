@@ -39,20 +39,53 @@ export const STATUS_LABEL: Record<UserStatus, string> = {
 
 export let ADMIN_USERS: AdminUser[] = [];
 
-export async function hydrateAdminUsersFromApi(q?: string) {
+export type AdminUsersPage = {
+  users: AdminUser[];
+  meta: {
+    page: number;
+    pageSize: number;
+    total: number;
+    totalPages: number;
+    summary: {
+      users: number;
+      verified: number;
+      pending: number;
+      aum: number | null;
+    };
+  };
+};
+
+export async function hydrateAdminUsersFromApi(
+  params: { q?: string; status?: string; tier?: string | number; page?: number; pageSize?: number } | string = {},
+): Promise<AdminUsersPage> {
+  const empty: AdminUsersPage = {
+    users: [],
+    meta: {
+      page: 1,
+      pageSize: 25,
+      total: 0,
+      totalPages: 1,
+      summary: { users: 0, verified: 0, pending: 0, aum: null },
+    },
+  };
   try {
     const { fetchAdminUsers, getAdminAccessToken } = await import("./admin-api");
     if (!getAdminAccessToken()) {
       ADMIN_USERS = [];
-      return [];
+      return empty;
     }
     const { mapAdminUserListItem } = await import("./admin-mappers");
-    const rows = await fetchAdminUsers(q);
-    ADMIN_USERS = rows.map(mapAdminUserListItem);
-    return ADMIN_USERS;
+    const raw = typeof params === "string" ? { q: params } : params;
+    const res = await fetchAdminUsers(raw);
+    const users = (res.users ?? []).map(mapAdminUserListItem);
+    ADMIN_USERS = users;
+    return {
+      users,
+      meta: res.meta ?? empty.meta,
+    };
   } catch {
     ADMIN_USERS = [];
-    return [];
+    return empty;
   }
 }
 
