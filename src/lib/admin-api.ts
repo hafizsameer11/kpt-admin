@@ -1449,6 +1449,59 @@ export async function putAdminSettings(body: Partial<AdminSystemSettings>) {
   });
 }
 
+export type WithdrawalNotifyEmail = {
+  id: string;
+  email: string;
+  label: string;
+  active: boolean;
+  createdAt: string;
+  createdBy: string | null;
+};
+
+export type WithdrawalNotifyActivity = {
+  id: string;
+  email: string;
+  status: "sent" | "failed";
+  provider: string | null;
+  providerMessageId: string | null;
+  error: string | null;
+  withdrawalId: string | null;
+  reference: string | null;
+  amountNaira: number | null;
+  subject: string;
+  at: string;
+};
+
+export async function fetchWithdrawalNotifyEmails() {
+  return adminApi<{
+    emails: WithdrawalNotifyEmail[];
+    activity: WithdrawalNotifyActivity[];
+  }>("/v1/admin/settings/withdrawal-notify-emails");
+}
+
+export async function addWithdrawalNotifyEmail(body: { email: string; label?: string }) {
+  return adminApi<WithdrawalNotifyEmail>("/v1/admin/settings/withdrawal-notify-emails", {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+export async function patchWithdrawalNotifyEmail(
+  id: string,
+  body: { active?: boolean; label?: string },
+) {
+  return adminApi<WithdrawalNotifyEmail>(`/v1/admin/settings/withdrawal-notify-emails/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify(body),
+  });
+}
+
+export async function deleteWithdrawalNotifyEmail(id: string) {
+  return adminApi<{ ok: boolean }>(`/v1/admin/settings/withdrawal-notify-emails/${id}`, {
+    method: "DELETE",
+  });
+}
+
 export type AdminDigestSettings = {
   enabled: boolean;
   sendTime: string;

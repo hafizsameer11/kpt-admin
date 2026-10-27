@@ -74,6 +74,17 @@ function WithdrawalQueuePage() {
       title="Withdrawals"
       subtitle="ADM-050 · payout queue, review and settlement"
     >
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-border/80 bg-card px-4 py-3 text-[13px]">
+        <p className="text-muted-foreground">
+          Configure who receives an email when a new withdrawal request is created.
+        </p>
+        <Link
+          to="/settings/withdrawal-alerts"
+          className="font-bold text-brand underline-offset-2 hover:underline"
+        >
+          Withdrawal alert emails
+        </Link>
+      </div>
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <Stat
           label="Awaiting review"
