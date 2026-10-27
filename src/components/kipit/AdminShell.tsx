@@ -23,6 +23,7 @@ import {
   UserCircle,
   LockKeyhole,
   LogOut,
+  Mail,
   X,
   type LucideIcon,
 } from "lucide-react";
@@ -112,6 +113,12 @@ const GROUPS: Group[] = [
       { label: "Audit log", to: "/audit", icon: ScrollText, anyOf: ["audit.view"] },
       { label: "Notifications", to: "/notifications", icon: Bell },
       { label: "System settings", to: "/settings", icon: Settings, anyOf: ["role.manage", "admin.manage"] },
+      {
+        label: "Withdrawal alerts",
+        to: "/settings/withdrawal-alerts",
+        icon: Mail,
+        anyOf: ["role.manage", "admin.manage", "withdrawal.process"],
+      },
       { label: "My profile", to: "/profile", icon: UserCircle },
     ],
   },

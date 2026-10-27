@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { AlertTriangle, Clock, Coins, Flag, Gauge, MessageCircle, Wrench } from "lucide-react";
 import { toast } from "sonner";
 
@@ -184,6 +184,15 @@ function SystemSettingsPage() {
 
   return (
     <AdminShell title="System settings" subtitle="Fees, limits, cut-offs, maintenance and flags">
+      <div className="mb-4 rounded-2xl border border-border/80 bg-card px-4 py-3 text-[13px]">
+        <span className="font-bold text-foreground">Withdrawal request emails:</span>{" "}
+        <span className="text-muted-foreground">
+          Manage who gets notified when a customer requests a withdrawal (including external addresses).
+        </span>{" "}
+        <Link to="/settings/withdrawal-alerts" className="font-bold text-brand underline-offset-2 hover:underline">
+          Open withdrawal alert emails
+        </Link>
+      </div>
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <Stat label="Withdrawal fee" value={`₦${fees[0]?.value ?? "0"}`} helper="Flat, per payout" tone="brand" icon={Coins} />
         <Stat label="Tier 2 daily cap" value={tier2Display} helper="Per customer per day" icon={Gauge} />

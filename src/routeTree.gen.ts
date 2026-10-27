@@ -52,6 +52,7 @@ import { Route as ProductsPublishedRouteImport } from './routes/products_.publis
 import { Route as RatesApprovalsRouteImport } from './routes/rates_.approvals'
 import { Route as RatesProposeRouteImport } from './routes/rates_.propose'
 import { Route as ReconciliationRecordsRouteImport } from './routes/reconciliation_.records'
+import { Route as SettingsWithdrawalAlertsRouteImport } from './routes/settings_/withdrawal-alerts'
 import { Route as SupportTicketIdRouteImport } from './routes/support_.$ticketId'
 import { Route as TeamAdminIdRouteImport } from './routes/team_.$adminId'
 import { Route as TeamNewRouteImport } from './routes/team_.new'
@@ -294,6 +295,12 @@ const ReconciliationRecordsRoute = ReconciliationRecordsRouteImport.update({
   path: '/reconciliation/records',
   getParentRoute: () => rootRouteImport,
 } as any)
+const SettingsWithdrawalAlertsRoute =
+  SettingsWithdrawalAlertsRouteImport.update({
+    id: '/settings_/withdrawal-alerts',
+    path: '/settings/withdrawal-alerts',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const SupportTicketIdRoute = SupportTicketIdRouteImport.update({
   id: '/support_/$ticketId',
   path: '/support/$ticketId',
@@ -471,6 +478,7 @@ export interface FileRoutesByFullPath {
   '/rates/approvals': typeof RatesApprovalsRoute
   '/rates/propose': typeof RatesProposeRoute
   '/reconciliation/records': typeof ReconciliationRecordsRoute
+  '/settings/withdrawal-alerts': typeof SettingsWithdrawalAlertsRoute
   '/support/$ticketId': typeof SupportTicketIdRoute
   '/team/$adminId': typeof TeamAdminIdRoute
   '/team/new': typeof TeamNewRoute
@@ -542,6 +550,7 @@ export interface FileRoutesByTo {
   '/rates/approvals': typeof RatesApprovalsRoute
   '/rates/propose': typeof RatesProposeRoute
   '/reconciliation/records': typeof ReconciliationRecordsRoute
+  '/settings/withdrawal-alerts': typeof SettingsWithdrawalAlertsRoute
   '/support/$ticketId': typeof SupportTicketIdRoute
   '/team/$adminId': typeof TeamAdminIdRoute
   '/team/new': typeof TeamNewRoute
@@ -613,6 +622,7 @@ export interface FileRoutesById {
   '/rates_/approvals': typeof RatesApprovalsRoute
   '/rates_/propose': typeof RatesProposeRoute
   '/reconciliation_/records': typeof ReconciliationRecordsRoute
+  '/settings_/withdrawal-alerts': typeof SettingsWithdrawalAlertsRoute
   '/support_/$ticketId': typeof SupportTicketIdRoute
   '/team_/$adminId': typeof TeamAdminIdRoute
   '/team_/new': typeof TeamNewRoute
@@ -686,6 +696,7 @@ export interface FileRouteTypes {
     | '/rates/approvals'
     | '/rates/propose'
     | '/reconciliation/records'
+    | '/settings/withdrawal-alerts'
     | '/support/$ticketId'
     | '/team/$adminId'
     | '/team/new'
@@ -757,6 +768,7 @@ export interface FileRouteTypes {
     | '/rates/approvals'
     | '/rates/propose'
     | '/reconciliation/records'
+    | '/settings/withdrawal-alerts'
     | '/support/$ticketId'
     | '/team/$adminId'
     | '/team/new'
@@ -827,6 +839,7 @@ export interface FileRouteTypes {
     | '/rates_/approvals'
     | '/rates_/propose'
     | '/reconciliation_/records'
+    | '/settings_/withdrawal-alerts'
     | '/support_/$ticketId'
     | '/team_/$adminId'
     | '/team_/new'
@@ -899,6 +912,7 @@ export interface RootRouteChildren {
   RatesApprovalsRoute: typeof RatesApprovalsRoute
   RatesProposeRoute: typeof RatesProposeRoute
   ReconciliationRecordsRoute: typeof ReconciliationRecordsRoute
+  SettingsWithdrawalAlertsRoute: typeof SettingsWithdrawalAlertsRoute
   SupportTicketIdRoute: typeof SupportTicketIdRoute
   TeamAdminIdRoute: typeof TeamAdminIdRoute
   TeamNewRoute: typeof TeamNewRoute
@@ -1221,6 +1235,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ReconciliationRecordsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/settings_/withdrawal-alerts': {
+      id: '/settings_/withdrawal-alerts'
+      path: '/settings/withdrawal-alerts'
+      fullPath: '/settings/withdrawal-alerts'
+      preLoaderRoute: typeof SettingsWithdrawalAlertsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/support_/$ticketId': {
       id: '/support_/$ticketId'
       path: '/support/$ticketId'
@@ -1478,6 +1499,7 @@ const rootRouteChildren: RootRouteChildren = {
   RatesApprovalsRoute: RatesApprovalsRoute,
   RatesProposeRoute: RatesProposeRoute,
   ReconciliationRecordsRoute: ReconciliationRecordsRoute,
+  SettingsWithdrawalAlertsRoute: SettingsWithdrawalAlertsRoute,
   SupportTicketIdRoute: SupportTicketIdRoute,
   TeamAdminIdRoute: TeamAdminIdRoute,
   TeamNewRoute: TeamNewRoute,
@@ -1499,13 +1521,3 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}
