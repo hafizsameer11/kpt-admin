@@ -493,33 +493,33 @@ function Investments() {
                     </li>
                   ))}
                 </ul>
-                <DialogFooter className="mt-2 flex-col gap-2 sm:flex-row sm:justify-between">
-                  {superAdmin ? (
-                    <button
-                      type="button"
-                      onClick={() => setEditing(true)}
-                      className="inline-flex h-10 items-center rounded-lg border border-border px-4 text-[13px] font-bold"
-                    >
-                      Edit investment
-                    </button>
-                  ) : (
-                    <span />
-                  )}
+                <div className="mt-4 space-y-3">
                   {open.state === "active" ? (
-                    <div className="flex flex-col items-end gap-2 sm:flex-row sm:items-center">
-                      <p className="max-w-[14rem] text-[11.5px] text-muted-foreground">
-                        Mature now pays full tenor interest even if days held are short.
-                      </p>
+                    <p className="text-[11.5px] leading-snug text-muted-foreground">
+                      Mature now pays full tenor interest even if days held are short.
+                    </p>
+                  ) : null}
+                  <div className="flex flex-wrap items-center justify-end gap-2">
+                    {superAdmin ? (
+                      <button
+                        type="button"
+                        onClick={() => setEditing(true)}
+                        className="inline-flex h-10 shrink-0 items-center justify-center whitespace-nowrap rounded-lg border border-border bg-background px-4 text-[13px] font-bold"
+                      >
+                        Edit investment
+                      </button>
+                    ) : null}
+                    {open.state === "active" ? (
                       <button
                         type="button"
                         onClick={() => setConfirmMature(open)}
-                        className="inline-flex h-10 items-center rounded-lg bg-brand px-4 text-[13px] font-bold text-primary-foreground"
+                        className="inline-flex h-10 shrink-0 items-center justify-center whitespace-nowrap rounded-lg bg-brand px-4 text-[13px] font-bold text-primary-foreground"
                       >
                         Mature now
                       </button>
-                    </div>
-                  ) : null}
-                </DialogFooter>
+                    ) : null}
+                  </div>
+                </div>
               </>
             )
           ) : null}
