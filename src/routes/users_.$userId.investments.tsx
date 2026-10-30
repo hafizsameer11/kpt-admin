@@ -136,7 +136,7 @@ function Investments() {
     }
     setEditName(open.product);
     setEditPrincipal(formatMoneyInput(String(Math.round(open.principal))));
-    setEditRatePct(String(open.ratePct ?? Number(open.rate.replace("%", "")) || ""));
+    setEditRatePct(String((open.ratePct ?? Number(open.rate.replace("%", ""))) || ""));
     setEditTenor(open.tenorDays != null ? String(open.tenorDays) : "");
     setEditStart(open.startIso || todayIso());
     setEditMaturity(open.maturityIso || "");
