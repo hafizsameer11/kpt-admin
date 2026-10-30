@@ -267,6 +267,15 @@ export async function createAdminPlacement(
     name?: string;
     productId?: string;
     debitWallet?: boolean;
+    maturityInstruction?: "WALLET" | "ROLLOVER" | "PAYOUT";
+    /** Super-admin overrides */
+    startDate?: string;
+    maturityDate?: string;
+    ratePct?: number;
+    expectedInterest?: number;
+    expectedPayout?: number;
+    accrued?: number;
+    status?: "ACTIVE" | "MATURED" | "CLOSED";
   },
 ) {
   return adminApi<{
@@ -276,10 +285,53 @@ export async function createAdminPlacement(
     amount?: number;
     ratePct?: number;
     tenorDays?: number;
+    startDate?: string;
     maturityDate?: string;
+    expectedInterest?: number;
+    expectedPayout?: number;
     balance?: number;
   }>(`/v1/admin/users/${userId}/placements`, {
     method: "POST",
+    body: JSON.stringify(input),
+  });
+}
+
+/** Super-admin: update any field on a placement. */
+export async function updateAdminPlacement(
+  userId: string,
+  placementId: string,
+  input: {
+    name?: string;
+    principal?: number;
+    ratePct?: number;
+    tenorDays?: number;
+    startDate?: string;
+    maturityDate?: string | null;
+    expectedInterest?: number;
+    expectedPayout?: number;
+    accrued?: number;
+    status?: "ACTIVE" | "MATURED" | "CLOSED";
+    maturityInstruction?: "WALLET" | "ROLLOVER" | "PAYOUT";
+    kind?: "FIXED" | "CALL" | "EXPLORE";
+  },
+) {
+  return adminApi<{
+    id: string;
+    name: string;
+    kind: string;
+    status: string;
+    principal: number;
+    ratePct: number;
+    tenorDays?: number | null;
+    expectedInterest?: number;
+    expectedPayout?: number;
+    accrued?: number;
+    maturityInstruction?: string;
+    startDate: string;
+    maturityDate: string | null;
+    createdAt: string;
+  }>(`/v1/admin/users/${userId}/placements/${placementId}`, {
+    method: "PATCH",
     body: JSON.stringify(input),
   });
 }
@@ -354,6 +406,9 @@ export async function fetchAdminUserPlacements(userId: string) {
       tenorDays?: number | null;
       expectedInterest?: number;
       expectedPayout?: number;
+      accrued?: number;
+      maturityInstruction?: string;
+      startDate?: string;
       maturityDate: string | null;
       createdAt: string;
     }[]
