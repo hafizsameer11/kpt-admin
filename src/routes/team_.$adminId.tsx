@@ -15,6 +15,7 @@ import { toast } from "sonner";
 import { AdminShell } from "@/components/kipit/AdminShell";
 import { Panel, Stat } from "@/components/kipit/AdminBits";
 import {
+  ADMIN_ROLES,
   ADMIN_STATUS_LABEL,
   ADMIN_STATUS_TONE,
   PERMISSION_GROUPS,
@@ -23,10 +24,13 @@ import {
   memberById,
   roleById,
   type AdminMember,
+  type AdminRoleId,
   type AdminStatus,
   type AuditEntry,
   getLiveAuditLog,
 } from "@/lib/admin-team-data";
+import { getAdminSession } from "@/lib/admin-auth";
+import { adminHasPermission } from "@/lib/admin-permissions";
 import {
   Dialog,
   DialogContent,
@@ -64,6 +68,10 @@ function AdminMemberPage() {
   const [activity, setActivity] = useState<AuditEntry[]>([]);
   const [status, setStatus] = useState<AdminStatus>("active");
   const [confirm, setConfirm] = useState<null | "suspend" | "restore" | "remove">(null);
+  const [selectedRole, setSelectedRole] = useState<AdminRoleId>("support");
+  const [savingRole, setSavingRole] = useState(false);
+  const canChangeRole = adminHasPermission("admin.manage");
+  const sessionEmail = getAdminSession()?.email?.toLowerCase() ?? "";
 
   useEffect(() => {
     void Promise.all([hydrateAdminTeamFromApi(), hydrateAdminAuditFromApi()]).then(([members]) => {
@@ -71,6 +79,7 @@ function AdminMemberPage() {
       setMember(found);
       if (found) {
         setStatus(found.status);
+        setSelectedRole(found.role);
         setActivity(getLiveAuditLog().filter((e) => e.actor === found.name).slice(0, 6));
       }
     });
@@ -103,6 +112,24 @@ function AdminMemberPage() {
   }
 
   const role = roleById(member.role);
+  const isSelf = Boolean(sessionEmail && member.email.toLowerCase() === sessionEmail);
+  const roleDirty = selectedRole !== member.role;
+
+  const saveRole = async () => {
+    if (!canChangeRole || isSelf || !roleDirty || savingRole) return;
+    setSavingRole(true);
+    try {
+      const { updateAdminTeamMember } = await import("@/lib/admin-api");
+      const { uiRoleToApiRole } = await import("@/lib/admin-mappers");
+      await updateAdminTeamMember(member.id, { role: uiRoleToApiRole(selectedRole) });
+      setMember({ ...member, role: selectedRole });
+      toast.success(`Role updated to ${roleById(selectedRole)?.name ?? selectedRole}`);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not update role");
+    } finally {
+      setSavingRole(false);
+    }
+  };
 
   return (
     <AdminShell title={member.name} subtitle={`ADM-120 · ${role?.name ?? member.role}`}>
@@ -249,6 +276,46 @@ function AdminMemberPage() {
             <Line label="Two-factor" value={member.twoFactor ? "Authenticator app" : "Not set up"} />
             <Line label="Created" value={`${member.createdAt} by ${member.createdBy}`} />
           </Panel>
+
+          {canChangeRole ? (
+            <Panel title="Change role" icon={ShieldCheck}>
+              {isSelf ? (
+                <p className="text-[13px] text-muted-foreground">
+                  You cannot change your own role. Ask another Global Admin to update it.
+                </p>
+              ) : (
+                <div className="space-y-3">
+                  <label className="block">
+                    <span className="mb-1.5 block text-[11px] font-bold uppercase tracking-[0.12em] text-muted-foreground">
+                      Assigned role
+                    </span>
+                    <select
+                      value={selectedRole}
+                      onChange={(e) => setSelectedRole(e.target.value as AdminRoleId)}
+                      className="w-full rounded-lg border border-border bg-background px-3 py-2.5 text-[13.5px] font-bold outline-none focus:border-brand"
+                    >
+                      {ADMIN_ROLES.map((r) => (
+                        <option key={r.id} value={r.id}>
+                          {r.name}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <p className="text-[12px] leading-snug text-muted-foreground">
+                    {roleById(selectedRole)?.summary}
+                  </p>
+                  <button
+                    type="button"
+                    disabled={!roleDirty || savingRole}
+                    onClick={() => void saveRole()}
+                    className="flex w-full items-center justify-center gap-2 rounded-lg bg-brand px-4 py-2.5 text-[13px] font-bold text-primary-foreground transition hover:opacity-95 disabled:opacity-50"
+                  >
+                    {savingRole ? "Saving…" : "Save role"}
+                  </button>
+                </div>
+              )}
+            </Panel>
+          ) : null}
 
           <Panel title="Actions">
             <div className="space-y-2">
