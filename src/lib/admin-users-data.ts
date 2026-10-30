@@ -203,11 +203,19 @@ export type AdminInvestment = {
   product: string;
   principal: number;
   rate: string;
+  ratePct: number;
   start: string;
+  /** ISO date yyyy-mm-dd for editors */
+  startIso: string;
   maturity: string;
+  maturityIso: string | null;
   expected: number;
   expectedInterest?: number;
+  accrued?: number;
   tenorDays?: number | null;
+  statusRaw?: string;
+  maturityInstruction?: string;
+  kind?: string;
   state: "active" | "matured" | "adjusted";
   note?: string;
 };
@@ -219,8 +227,11 @@ export const USER_INVESTMENTS: Record<string, AdminInvestment[]> = {
       product: "Kipit Fixed Â· 90 days",
       principal: 4_500_000,
       rate: "20.0%",
+      ratePct: 20,
       start: "08 Jun 2026",
+      startIso: "2026-06-08",
       maturity: "06 Sep 2026",
+      maturityIso: "2026-09-06",
       expected: 4_721_000,
       state: "active",
     },
@@ -229,8 +240,11 @@ export const USER_INVESTMENTS: Record<string, AdminInvestment[]> = {
       product: "FGN Treasury Bills",
       principal: 3_200_000,
       rate: "19.4%",
+      ratePct: 19.4,
       start: "15 Jul 2026",
+      startIso: "2026-07-15",
       maturity: "13 Oct 2026",
+      maturityIso: "2026-10-13",
       expected: 3_353_000,
       state: "active",
     },
@@ -239,8 +253,11 @@ export const USER_INVESTMENTS: Record<string, AdminInvestment[]> = {
       product: "Kipit Call Account",
       principal: 2_150_000,
       rate: "12.0%",
+      ratePct: 12,
       start: "12 Jan 2026",
+      startIso: "2026-01-12",
       maturity: "Open-ended",
+      maturityIso: null,
       expected: 2_150_000,
       state: "active",
     },
@@ -249,8 +266,11 @@ export const USER_INVESTMENTS: Record<string, AdminInvestment[]> = {
       product: "Kipit Fixed Â· 30 days",
       principal: 1_250_000,
       rate: "18.5%",
+      ratePct: 18.5,
       start: "29 Jul 2026",
+      startIso: "2026-07-29",
       maturity: "28 Aug 2026",
+      maturityIso: "2026-08-28",
       expected: 1_269_000,
       state: "matured",
     },
@@ -259,8 +279,11 @@ export const USER_INVESTMENTS: Record<string, AdminInvestment[]> = {
       product: "Kipit Fixed Â· 180 days",
       principal: 2_000_000,
       rate: "21.5%",
+      ratePct: 21.5,
       start: "04 Mar 2026",
+      startIso: "2026-03-04",
       maturity: "31 Aug 2026",
+      maturityIso: "2026-08-31",
       expected: 2_215_000,
       state: "adjusted",
       note: "Tenor shortened by 5 days â€” approved by Global Admin (maker-checker AD-4471).",

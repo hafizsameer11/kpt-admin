@@ -172,6 +172,13 @@ export function mapAdminUserTxn(
   };
 }
 
+function toIsoDay(iso: string | null | undefined): string | null {
+  if (!iso) return null;
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return null;
+  return d.toISOString().slice(0, 10);
+}
+
 export function mapAdminUserPlacement(
   row: Awaited<ReturnType<typeof fetchAdminUserPlacements>>[number],
 ): AdminInvestment {
@@ -185,16 +192,24 @@ export function mapAdminUserPlacement(
     typeof row.expectedPayout === "number"
       ? row.expectedPayout
       : row.principal + (row.expectedInterest ?? 0);
+  const startRaw = row.startDate ?? row.createdAt;
   return {
     id: row.id,
     product: row.name,
     principal: row.principal,
     rate: `${row.ratePct.toFixed(1)}%`,
-    start: formatAdminDate(row.createdAt),
+    ratePct: row.ratePct,
+    start: formatAdminDate(startRaw),
+    startIso: toIsoDay(startRaw) ?? "",
     maturity: row.maturityDate ? formatAdminDate(row.maturityDate) : "—",
+    maturityIso: toIsoDay(row.maturityDate),
     expected,
     expectedInterest: row.expectedInterest ?? Math.max(0, expected - row.principal),
+    accrued: row.accrued ?? 0,
     tenorDays: row.tenorDays ?? null,
+    statusRaw: row.status,
+    ...(row.maturityInstruction ? { maturityInstruction: row.maturityInstruction } : {}),
+    ...(row.kind ? { kind: row.kind } : {}),
     state,
   };
 }
