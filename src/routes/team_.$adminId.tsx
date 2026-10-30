@@ -30,7 +30,7 @@ import {
   getLiveAuditLog,
 } from "@/lib/admin-team-data";
 import { getAdminSession } from "@/lib/admin-auth";
-import { adminHasPermission } from "@/lib/admin-permissions";
+import { uiRoleIdFromApiRole } from "@/lib/admin-permissions";
 import {
   Dialog,
   DialogContent,
@@ -70,7 +70,8 @@ function AdminMemberPage() {
   const [confirm, setConfirm] = useState<null | "suspend" | "restore" | "remove">(null);
   const [selectedRole, setSelectedRole] = useState<AdminRoleId>("support");
   const [savingRole, setSavingRole] = useState(false);
-  const canChangeRole = adminHasPermission("admin.manage");
+  /** SUPER / GLOBAL only — not Operations even if they have admin.manage. */
+  const canChangeRole = uiRoleIdFromApiRole(getAdminSession()?.role) === "global-admin";
   const sessionEmail = getAdminSession()?.email?.toLowerCase() ?? "";
 
   useEffect(() => {
