@@ -12,7 +12,6 @@ import {
   updateAdminPlacement,
 } from "@/lib/admin-api";
 import { loadAdminUserPlacements } from "@/lib/admin-mappers";
-import { uiRoleIdFromApiRole } from "@/lib/admin-permissions";
 import { type AdminInvestment } from "@/lib/admin-users-data";
 import {
   Dialog,
@@ -33,8 +32,9 @@ const SECTIONS: { key: AdminInvestment["state"]; label: string }[] = [
   { key: "adjusted", label: "Adjusted" },
 ];
 
+/** API role SUPER only — GLOBAL is not enough. */
 function isSuperAdminRole(role?: string | null) {
-  return uiRoleIdFromApiRole(role) === "global-admin";
+  return String(role || "").toUpperCase() === "SUPER";
 }
 
 function formatMoneyInput(raw: string) {

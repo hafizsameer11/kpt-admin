@@ -30,7 +30,6 @@ import {
   getLiveAuditLog,
 } from "@/lib/admin-team-data";
 import { getAdminSession } from "@/lib/admin-auth";
-import { uiRoleIdFromApiRole } from "@/lib/admin-permissions";
 import {
   Dialog,
   DialogContent,
@@ -70,8 +69,8 @@ function AdminMemberPage() {
   const [confirm, setConfirm] = useState<null | "suspend" | "restore" | "remove">(null);
   const [selectedRole, setSelectedRole] = useState<AdminRoleId>("support");
   const [savingRole, setSavingRole] = useState(false);
-  /** SUPER / GLOBAL only — not Operations even if they have admin.manage. */
-  const canChangeRole = uiRoleIdFromApiRole(getAdminSession()?.role) === "global-admin";
+  /** API role SUPER only — GLOBAL cannot change roles. */
+  const canChangeRole = String(getAdminSession()?.role || "").toUpperCase() === "SUPER";
   const sessionEmail = getAdminSession()?.email?.toLowerCase() ?? "";
 
   useEffect(() => {
@@ -282,7 +281,7 @@ function AdminMemberPage() {
             <Panel title="Change role" icon={ShieldCheck}>
               {isSelf ? (
                 <p className="text-[13px] text-muted-foreground">
-                  You cannot change your own role. Ask another Global Admin to update it.
+                  You cannot change your own role. Ask another Super Admin to update it.
                 </p>
               ) : (
                 <div className="space-y-3">
