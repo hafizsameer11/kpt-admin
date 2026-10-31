@@ -192,7 +192,16 @@ function Profile() {
           </label>
           <label className="block">
             <span className={labelClass}>Gender</span>
-            <input value={gender} onChange={(e) => setGender(e.target.value)} className={fieldClass} />
+            <select
+              value={gender}
+              onChange={(e) => setGender(e.target.value)}
+              className={fieldClass}
+            >
+              <option value="">Select gender</option>
+              <option value="Female">Female</option>
+              <option value="Male">Male</option>
+              <option value="Prefer not to say">Prefer not to say</option>
+            </select>
           </label>
           <label className="block">
             <span className={labelClass}>Occupation</span>
