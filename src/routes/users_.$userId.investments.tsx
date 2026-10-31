@@ -4,7 +4,6 @@ import { toast } from "sonner";
 
 import { Panel } from "@/components/kipit/AdminBits";
 import { naira } from "@/lib/admin-data";
-import { getAdminSession } from "@/lib/admin-auth";
 import {
   AdminApiError,
   createAdminPlacement,
@@ -13,6 +12,12 @@ import {
 } from "@/lib/admin-api";
 import { loadAdminUserPlacements } from "@/lib/admin-mappers";
 import { type AdminInvestment } from "@/lib/admin-users-data";
+import {
+  formatMoneyInput,
+  isSuperAdminSession,
+  moneyToInput,
+  parseMoneyInput,
+} from "@/lib/admin-super";
 import {
   Dialog,
   DialogContent,
@@ -32,20 +37,6 @@ const SECTIONS: { key: AdminInvestment["state"]; label: string }[] = [
   { key: "adjusted", label: "Adjusted" },
 ];
 
-/** API role SUPER only — GLOBAL is not enough. */
-function isSuperAdminRole(role?: string | null) {
-  return String(role || "").toUpperCase() === "SUPER";
-}
-
-function formatMoneyInput(raw: string) {
-  const digits = raw.replace(/[^\d]/g, "");
-  return digits ? Number(digits).toLocaleString("en-NG") : "";
-}
-
-function parseMoneyInput(raw: string) {
-  return Number(raw.replace(/,/g, "")) || 0;
-}
-
 function todayIso() {
   return new Date().toISOString().slice(0, 10);
 }
@@ -58,7 +49,7 @@ function addDaysIso(iso: string, days: number) {
 
 function Investments() {
   const { userId } = Route.useParams();
-  const superAdmin = useMemo(() => isSuperAdminRole(getAdminSession()?.role), []);
+  const superAdmin = useMemo(() => isSuperAdminSession(), []);
 
   const [rows, setRows] = useState<AdminInvestment[]>([]);
   const [open, setOpen] = useState<AdminInvestment | null>(null);
@@ -135,18 +126,16 @@ function Investments() {
       return;
     }
     setEditName(open.product);
-    setEditPrincipal(formatMoneyInput(String(Math.round(open.principal))));
+    setEditPrincipal(moneyToInput(open.principal));
     setEditRatePct(String((open.ratePct ?? Number(open.rate.replace("%", ""))) || ""));
     setEditTenor(open.tenorDays != null ? String(open.tenorDays) : "");
     setEditStart(open.startIso || todayIso());
     setEditMaturity(open.maturityIso || "");
     setEditInterest(
-      formatMoneyInput(
-        String(Math.round(open.expectedInterest ?? Math.max(0, open.expected - open.principal))),
-      ),
+      moneyToInput(open.expectedInterest ?? Math.max(0, open.expected - open.principal)),
     );
-    setEditPayout(formatMoneyInput(String(Math.round(open.expected))));
-    setEditAccrued(formatMoneyInput(String(Math.round(open.accrued ?? 0))));
+    setEditPayout(moneyToInput(open.expected));
+    setEditAccrued(moneyToInput(open.accrued ?? 0));
     const raw = (open.statusRaw || "").toUpperCase();
     setEditStatus(raw === "MATURED" || raw === "CLOSED" ? raw : "ACTIVE");
     const instr = (open.maturityInstruction || "WALLET").toUpperCase();

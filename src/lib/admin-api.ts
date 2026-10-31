@@ -357,9 +357,23 @@ export async function fetchAdminUser(userId: string) {
     phone: string | null;
     name: string;
     firstName: string;
+    middleName?: string | null;
     surname: string;
+    accountType?: string;
+    businessName?: string | null;
+    businessRcNumber?: string | null;
+    dateOfBirth?: string | null;
+    gender?: string | null;
+    occupation?: string | null;
+    employmentStatus?: string | null;
+    sourceOfFunds?: string | null;
+    addressStreet?: string | null;
+    addressCity?: string | null;
+    addressState?: string | null;
+    addressLga?: string | null;
     kycTier: string;
     frozen: boolean;
+    frozenReason?: string | null;
     createdAt: string;
     lastActive: string;
     balances: { wallet: number; call: number; fixed: number; explore: number };
@@ -378,6 +392,73 @@ export async function fetchAdminUser(userId: string) {
       sourceOfFunds: string | null;
     };
   }>(`/v1/admin/users/${userId}`);
+}
+
+/** SUPER: credit or debit wallet / call. */
+export async function adjustAdminUserBalance(
+  userId: string,
+  input: {
+    pool?: "WALLET" | "CALL";
+    direction: "credit" | "debit";
+    amount: number;
+    reason: string;
+  },
+) {
+  return adminApi<{
+    balances: { wallet: number; call: number; fixed: number; explore: number };
+    pool: string;
+    direction: string;
+    amount: number;
+  }>(`/v1/admin/users/${userId}/wallet/adjust`, {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+}
+
+/** SUPER: patch customer profile. */
+export async function updateAdminUserProfile(
+  userId: string,
+  input: Record<string, unknown>,
+) {
+  return adminApi<Record<string, unknown>>(`/v1/admin/users/${userId}`, {
+    method: "PATCH",
+    body: JSON.stringify(input),
+  });
+}
+
+/** SUPER: upload KYC document (base64). */
+export async function uploadAdminUserKycDocument(
+  userId: string,
+  input: { kind: "selfie" | "address"; contentType: string; dataBase64: string },
+) {
+  return adminApi<{
+    kind: string;
+    url: string;
+    status: string;
+    selfieUrl: string | null;
+    addressDocUrl: string | null;
+  }>(`/v1/admin/users/${userId}/kyc/documents`, {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+}
+
+/** SUPER: activate KYC tier / unfreeze profile. */
+export async function activateAdminUserKyc(
+  userId: string,
+  input: {
+    kycTier: "TIER_1" | "TIER_2";
+    bvn?: string;
+    nin?: string;
+    bvnName?: string;
+    ninName?: string;
+    unfreeze?: boolean;
+  },
+) {
+  return adminApi<{ id: string; kycTier: string; frozen: boolean }>(
+    `/v1/admin/users/${userId}/kyc/activate`,
+    { method: "POST", body: JSON.stringify(input) },
+  );
 }
 
 export async function fetchAdminUserTransactions(userId: string) {

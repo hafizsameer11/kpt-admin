@@ -76,6 +76,7 @@ import { Route as UsersUserIdBalancesRouteImport } from './routes/users_.$userId
 import { Route as UsersUserIdFrozenRouteImport } from './routes/users_.$userId.frozen'
 import { Route as UsersUserIdInvestmentsRouteImport } from './routes/users_.$userId.investments'
 import { Route as UsersUserIdKycRouteImport } from './routes/users_.$userId.kyc'
+import { Route as UsersUserIdProfileRouteImport } from './routes/users_.$userId.profile'
 import { Route as UsersUserIdSessionsRouteImport } from './routes/users_.$userId.sessions'
 import { Route as UsersUserIdSupportRouteImport } from './routes/users_.$userId.support'
 import { Route as UsersUserIdTransactionsRouteImport } from './routes/users_.$userId.transactions'
@@ -403,6 +404,11 @@ const UsersUserIdBalancesRoute = UsersUserIdBalancesRouteImport.update({
   path: '/balances',
   getParentRoute: () => UsersUserIdRoute,
 } as any)
+const UsersUserIdProfileRoute = UsersUserIdProfileRouteImport.update({
+  id: '/profile',
+  path: '/profile',
+  getParentRoute: () => UsersUserIdRoute,
+} as any)
 const UsersUserIdFrozenRoute = UsersUserIdFrozenRouteImport.update({
   id: '/frozen',
   path: '/frozen',
@@ -498,6 +504,7 @@ export interface FileRoutesByFullPath {
   '/reconciliation/records/$recordId': typeof ReconciliationRecordsRecordIdRoute
   '/users/$userId/audit': typeof UsersUserIdAuditRoute
   '/users/$userId/balances': typeof UsersUserIdBalancesRoute
+  '/users/$userId/profile': typeof UsersUserIdProfileRoute
   '/users/$userId/frozen': typeof UsersUserIdFrozenRoute
   '/users/$userId/investments': typeof UsersUserIdInvestmentsRoute
   '/users/$userId/kyc': typeof UsersUserIdKycRoute
@@ -569,6 +576,7 @@ export interface FileRoutesByTo {
   '/reconciliation/records/$recordId': typeof ReconciliationRecordsRecordIdRoute
   '/users/$userId/audit': typeof UsersUserIdAuditRoute
   '/users/$userId/balances': typeof UsersUserIdBalancesRoute
+  '/users/$userId/profile': typeof UsersUserIdProfileRoute
   '/users/$userId/frozen': typeof UsersUserIdFrozenRoute
   '/users/$userId/investments': typeof UsersUserIdInvestmentsRoute
   '/users/$userId/kyc': typeof UsersUserIdKycRoute
@@ -642,6 +650,7 @@ export interface FileRoutesById {
   '/reconciliation_/records_/$recordId': typeof ReconciliationRecordsRecordIdRoute
   '/users_/$userId/audit': typeof UsersUserIdAuditRoute
   '/users_/$userId/balances': typeof UsersUserIdBalancesRoute
+  '/users_/$userId/profile': typeof UsersUserIdProfileRoute
   '/users_/$userId/frozen': typeof UsersUserIdFrozenRoute
   '/users_/$userId/investments': typeof UsersUserIdInvestmentsRoute
   '/users_/$userId/kyc': typeof UsersUserIdKycRoute
@@ -716,6 +725,7 @@ export interface FileRouteTypes {
     | '/reconciliation/records/$recordId'
     | '/users/$userId/audit'
     | '/users/$userId/balances'
+    | '/users/$userId/profile'
     | '/users/$userId/frozen'
     | '/users/$userId/investments'
     | '/users/$userId/kyc'
@@ -787,6 +797,7 @@ export interface FileRouteTypes {
     | '/reconciliation/records/$recordId'
     | '/users/$userId/audit'
     | '/users/$userId/balances'
+    | '/users/$userId/profile'
     | '/users/$userId/frozen'
     | '/users/$userId/investments'
     | '/users/$userId/kyc'
@@ -859,6 +870,7 @@ export interface FileRouteTypes {
     | '/reconciliation_/records_/$recordId'
     | '/users_/$userId/audit'
     | '/users_/$userId/balances'
+    | '/users_/$userId/profile'
     | '/users_/$userId/frozen'
     | '/users_/$userId/investments'
     | '/users_/$userId/kyc'
@@ -1382,6 +1394,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof UsersUserIdBalancesRouteImport
       parentRoute: typeof UsersUserIdRoute
     }
+    '/users_/$userId/profile': {
+      id: '/users_/$userId/profile'
+      path: '/profile'
+      fullPath: '/users/$userId/profile'
+      preLoaderRoute: typeof UsersUserIdProfileRouteImport
+      parentRoute: typeof UsersUserIdRoute
+    }
     '/users_/$userId/frozen': {
       id: '/users_/$userId/frozen'
       path: '/frozen'
@@ -1430,6 +1449,7 @@ declare module '@tanstack/react-router' {
 interface UsersUserIdRouteChildren {
   UsersUserIdAuditRoute: typeof UsersUserIdAuditRoute
   UsersUserIdBalancesRoute: typeof UsersUserIdBalancesRoute
+  UsersUserIdProfileRoute: typeof UsersUserIdProfileRoute
   UsersUserIdFrozenRoute: typeof UsersUserIdFrozenRoute
   UsersUserIdInvestmentsRoute: typeof UsersUserIdInvestmentsRoute
   UsersUserIdKycRoute: typeof UsersUserIdKycRoute
@@ -1442,6 +1462,7 @@ interface UsersUserIdRouteChildren {
 const UsersUserIdRouteChildren: UsersUserIdRouteChildren = {
   UsersUserIdAuditRoute: UsersUserIdAuditRoute,
   UsersUserIdBalancesRoute: UsersUserIdBalancesRoute,
+  UsersUserIdProfileRoute: UsersUserIdProfileRoute,
   UsersUserIdFrozenRoute: UsersUserIdFrozenRoute,
   UsersUserIdInvestmentsRoute: UsersUserIdInvestmentsRoute,
   UsersUserIdKycRoute: UsersUserIdKycRoute,

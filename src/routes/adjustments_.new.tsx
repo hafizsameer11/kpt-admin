@@ -127,7 +127,7 @@ function validateNewValue(
       return null;
     }
     case "principal": {
-      const n = Number(value.replace(/\D/g, ""));
+      const n = Number(value.replace(/,/g, ""));
       if (!Number.isFinite(n) || n < 1000) {
         return "Enter a principal of at least ₦1,000.";
       }
@@ -151,7 +151,7 @@ function validateNewValue(
 function formatProposed(type: AdjustmentType, raw: string) {
   const value = raw.trim();
   if (!value) return "—";
-  if (type === "principal") return naira(Number(value.replace(/\D/g, "")) || 0);
+  if (type === "principal") return naira(Number(value.replace(/,/g, "")) || 0);
   if (type === "rate") return `${Number(value).toFixed(2)}%`;
   if (type === "tenor") return `${value} days`;
   if (type === "maturity-date") return toDateInputValue(value);
@@ -168,7 +168,7 @@ function serializeToValue(type: AdjustmentType, raw: string) {
   if (type === "maturity-date") return toDateInputValue(value);
   if (type === "rate") return String(Number(value));
   if (type === "tenor") return String(Number(value.replace(/[^\d]/g, "")));
-  if (type === "principal") return String(Number(value.replace(/\D/g, "")) || 0);
+  if (type === "principal") return String(Number(value.replace(/,/g, "")) || 0);
   return value;
 }
 
@@ -198,7 +198,7 @@ function newValueHint(type: AdjustmentType) {
     case "maturity-date":
       return "Use the same YYYY-MM-DD format as the current maturity date.";
     case "principal":
-      return "Enter the new principal in naira (numbers only).";
+      return "Enter the new principal in naira (decimals allowed).";
     case "payout-frequency":
       return "Choose how maturity proceeds should be handled.";
     case "status":
@@ -277,6 +277,19 @@ function NewValueField({
   }
 
   if (type === "principal") {
+    const formatPrincipal = (raw: string) => {
+      const cleaned = raw.replace(/[^\d.]/g, "");
+      if (!cleaned) return "";
+      const firstDot = cleaned.indexOf(".");
+      let intPart = firstDot >= 0 ? cleaned.slice(0, firstDot) : cleaned;
+      const decPart = firstDot >= 0 ? cleaned.slice(firstDot + 1).replace(/\./g, "").slice(0, 2) : null;
+      intPart = intPart.replace(/^0+(?=\d)/, "") || (decPart != null ? "0" : intPart);
+      if (decPart != null) {
+        const intFormatted = intPart ? Number(intPart).toLocaleString("en-NG") : "0";
+        return `${intFormatted}.${decPart}`;
+      }
+      return intPart ? Number(intPart).toLocaleString("en-NG") : "";
+    };
     return (
       <div className="relative mt-1.5">
         <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[13px] font-bold text-muted-foreground">
@@ -284,10 +297,10 @@ function NewValueField({
         </span>
         <input
           type="text"
-          inputMode="numeric"
-          value={value ? Number(value.replace(/\D/g, "") || 0).toLocaleString("en-NG") : ""}
-          onChange={(e) => onChange(e.target.value.replace(/\D/g, ""))}
-          placeholder="0"
+          inputMode="decimal"
+          value={value ? formatPrincipal(value) : ""}
+          onChange={(e) => onChange(formatPrincipal(e.target.value))}
+          placeholder="0.00"
           className={`${fieldClass} mt-0 pl-7`}
         />
       </div>

@@ -66,6 +66,7 @@ export const Route = createFileRoute("/users_/$userId")({
 
 const TABS = [
   { label: "Overview", to: "/users/$userId" as const, exact: true },
+  { label: "Profile", to: "/users/$userId/profile" as const },
   { label: "Balances", to: "/users/$userId/balances" as const },
   { label: "Investments", to: "/users/$userId/investments" as const },
   { label: "Transactions", to: "/users/$userId/transactions" as const },
