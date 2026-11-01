@@ -62,9 +62,17 @@ import { loadAdminDashboard } from "@/lib/admin-mappers";
 
 const ACTIVITY_TONE = {
   kyc: { icon: ShieldCheck, wrap: "bg-brand/10 text-brand", chip: "bg-brand/10 text-brand" },
-  payout: { icon: Send, wrap: "bg-gold/20 text-gold-foreground", chip: "bg-gold/20 text-gold-foreground" },
+  payout: {
+    icon: Send,
+    wrap: "bg-gold/20 text-gold-foreground",
+    chip: "bg-gold/20 text-gold-foreground",
+  },
   rate: { icon: Percent, wrap: "bg-brand/10 text-brand", chip: "bg-brand/10 text-brand" },
-  content: { icon: Megaphone, wrap: "bg-muted text-foreground/70", chip: "bg-muted text-foreground/70" },
+  content: {
+    icon: Megaphone,
+    wrap: "bg-muted text-foreground/70",
+    chip: "bg-muted text-foreground/70",
+  },
   decline: {
     icon: XCircle,
     wrap: "bg-destructive/10 text-destructive",
@@ -109,7 +117,6 @@ const LABELS: Record<string, string> = {
 };
 
 const labelOf = (key: string) => LABELS[key] ?? key;
-
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -241,7 +248,9 @@ function AdminDashboard() {
                     {showAum
                       ? "Principal + interest accrued to date"
                       : "AUM is hidden for your role"}
-                    {customerCount != null ? ` · ${customerCount.toLocaleString("en-NG")} customers` : ""}
+                    {customerCount != null
+                      ? ` · ${customerCount.toLocaleString("en-NG")} customers`
+                      : ""}
                   </span>
                 </div>
               </div>
@@ -253,11 +262,15 @@ function AdminDashboard() {
                 <div className="mt-2 space-y-1.5">
                   <div className="flex items-baseline justify-between gap-6">
                     <span className="text-[12px] text-primary-foreground/70">Principal</span>
-                    <span className="text-[15px] font-bold">{showAum ? naira(PRINCIPAL_TOTAL) : "—"}</span>
+                    <span className="text-[15px] font-bold">
+                      {showAum ? naira(PRINCIPAL_TOTAL) : "—"}
+                    </span>
                   </div>
                   <div className="flex items-baseline justify-between gap-6">
                     <span className="text-[12px] text-primary-foreground/70">Interest accrued</span>
-                    <span className="text-[15px] font-bold">{showAum ? naira(INTEREST_ACCRUED) : "—"}</span>
+                    <span className="text-[15px] font-bold">
+                      {showAum ? naira(INTEREST_ACCRUED) : "—"}
+                    </span>
                   </div>
                   <div className="flex items-baseline justify-between gap-6 border-t border-white/15 pt-1.5">
                     <span className="text-[12px] text-primary-foreground/70">Total AUM</span>
@@ -266,7 +279,9 @@ function AdminDashboard() {
                     </span>
                   </div>
                   <div className="flex items-baseline justify-between gap-6 pt-0.5">
-                    <span className="text-[11px] text-primary-foreground/50">Still to maturity</span>
+                    <span className="text-[11px] text-primary-foreground/50">
+                      Still to maturity
+                    </span>
                     <span className="text-[12px] font-semibold text-primary-foreground/70">
                       {showAum ? naira(INTEREST_PAYABLE) : "—"}
                     </span>
@@ -285,7 +300,11 @@ function AdminDashboard() {
                       <stop offset="100%" stopColor="var(--gold)" stopOpacity={0.25} />
                     </linearGradient>
                   </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.12)" vertical={false} />
+                  <CartesianGrid
+                    strokeDasharray="3 3"
+                    stroke="rgba(255,255,255,0.12)"
+                    vertical={false}
+                  />
                   <XAxis
                     dataKey="month"
                     tickLine={false}
@@ -330,7 +349,6 @@ function AdminDashboard() {
                 </AreaChart>
               </ResponsiveContainer>
             </div>
-
           </div>
 
           {/* Today's flows */}
@@ -415,7 +433,6 @@ function AdminDashboard() {
                   </AreaChart>
                 </ResponsiveContainer>
               </div>
-
             </div>
           ))}
         </section>
@@ -438,8 +455,18 @@ function AdminDashboard() {
                     contentStyle={tooltipStyle}
                     formatter={(v: number, n: string) => [`₦${v}m`, labelOf(n)]}
                   />
-                  <Bar dataKey="deposits" fill="var(--brand)" radius={[4, 4, 0, 0]} maxBarSize={16} />
-                  <Bar dataKey="withdrawals" fill="var(--gold)" radius={[4, 4, 0, 0]} maxBarSize={16} />
+                  <Bar
+                    dataKey="deposits"
+                    fill="var(--brand)"
+                    radius={[4, 4, 0, 0]}
+                    maxBarSize={16}
+                  />
+                  <Bar
+                    dataKey="withdrawals"
+                    fill="var(--gold)"
+                    radius={[4, 4, 0, 0]}
+                    maxBarSize={16}
+                  />
                 </BarChart>
               </ResponsiveContainer>
             </div>
@@ -449,10 +476,15 @@ function AdminDashboard() {
             <h2 className="font-display text-[15px] font-extrabold tracking-[-0.01em]">
               Interest accrued vs paid
             </h2>
-            <p className="mt-1 text-[12px] text-muted-foreground">Monthly, {INTEREST_TREND_UNIT}.</p>
+            <p className="mt-1 text-[12px] text-muted-foreground">
+              Monthly, {INTEREST_TREND_UNIT}.
+            </p>
             <div className="mt-4 h-[190px]">
               <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={INTEREST_TREND} margin={{ top: 4, right: 4, bottom: 0, left: -12 }}>
+                <LineChart
+                  data={INTEREST_TREND}
+                  margin={{ top: 4, right: 4, bottom: 0, left: -12 }}
+                >
                   <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
                   <XAxis dataKey="month" tickLine={false} axisLine={false} tick={axisTick} />
                   <YAxis tickLine={false} axisLine={false} tick={axisTick} width={46} />
@@ -492,14 +524,20 @@ function AdminDashboard() {
             </p>
             <div className="mt-4 h-[190px]">
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={MATURITY_SCHEDULE} margin={{ top: 4, right: 4, bottom: 0, left: -12 }}>
+                <BarChart
+                  data={MATURITY_SCHEDULE}
+                  margin={{ top: 4, right: 4, bottom: 0, left: -12 }}
+                >
                   <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
                   <XAxis dataKey="week" tickLine={false} axisLine={false} tick={axisTick} />
                   <YAxis tickLine={false} axisLine={false} tick={axisTick} width={46} />
                   <Tooltip
                     cursor={{ fill: "var(--muted)" }}
                     contentStyle={tooltipStyle}
-                    formatter={(v: number) => [formatChartValue(v, MATURITY_SCHEDULE_UNIT), "Maturing"]}
+                    formatter={(v: number) => [
+                      formatChartValue(v, MATURITY_SCHEDULE_UNIT),
+                      "Maturing",
+                    ]}
                   />
                   <Bar dataKey="value" radius={[5, 5, 0, 0]} maxBarSize={26}>
                     {MATURITY_SCHEDULE.map((row, i) => (
@@ -515,8 +553,6 @@ function AdminDashboard() {
             </div>
           </div>
         </section>
-
-
 
         {/* ADM-013 — operational alerts */}
         <section className="card-surface p-5">
@@ -620,8 +656,6 @@ function AdminDashboard() {
               </div>
             </div>
 
-
-
             <div className="mt-5 grid gap-4 sm:grid-cols-2">
               <div>
                 <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-muted-foreground">
@@ -645,7 +679,10 @@ function AdminDashboard() {
                 </p>
                 <ul className="mt-2.5 space-y-2">
                   {PRINCIPAL_BY_PRODUCT.map((p) => (
-                    <li key={p.product} className="flex items-center justify-between gap-3 text-[12.5px]">
+                    <li
+                      key={p.product}
+                      className="flex items-center justify-between gap-3 text-[12.5px]"
+                    >
                       <span className="truncate font-semibold">{p.product}</span>
                       <span className="shrink-0 font-bold tabular-nums">
                         {compactNaira(p.value)}
@@ -816,7 +853,6 @@ function AdminDashboard() {
             })}
           </ol>
         </section>
-
 
         <p className="pb-2 text-[11px] leading-relaxed text-muted-foreground">
           Live console. Administrative actions are recorded against the operator, role and session

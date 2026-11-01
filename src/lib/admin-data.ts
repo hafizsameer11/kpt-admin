@@ -21,8 +21,7 @@ export let FIXED_PRINCIPAL = 0;
 export let EXPLORE_PRINCIPAL = 0;
 
 /** Aggregate AUM = principal + accrued interest to date. */
-export let FUM =
-  WALLET_BALANCES + CALL_PRINCIPAL + FIXED_PRINCIPAL + EXPLORE_PRINCIPAL;
+export let FUM = WALLET_BALANCES + CALL_PRINCIPAL + FIXED_PRINCIPAL + EXPLORE_PRINCIPAL;
 
 /** Cash + placement principal only (excludes accrued interest). */
 export let PRINCIPAL_TOTAL = FUM;
@@ -103,8 +102,17 @@ export async function hydrateAdminDashboardFromApi() {
       getAdminAccessToken,
     } = await import("./admin-api");
     if (!getAdminAccessToken()) return false;
-    const [dash, maturities, activity, flows, flowTrend, interestTrend, maturitySchedule, byTenor, byProduct] =
-      await Promise.all([
+    const [
+      dash,
+      maturities,
+      activity,
+      flows,
+      flowTrend,
+      interestTrend,
+      maturitySchedule,
+      byTenor,
+      byProduct,
+    ] = await Promise.all([
       fetchAdminDashboard(),
       fetchAdminMaturities().catch(() => [] as typeof MATURITIES),
       fetchAdminRecentActivity().catch(() => [] as typeof RECENT_ACTIVITY),
@@ -114,10 +122,18 @@ export async function hydrateAdminDashboardFromApi() {
         interestCredits: 0,
         withdrawals: 0,
       })),
-      fetchAdminFlowTrend().catch(() => [] as { day: string; deposits: number; withdrawals: number }[]),
+      fetchAdminFlowTrend().catch(
+        () => [] as { day: string; deposits: number; withdrawals: number }[],
+      ),
       fetchAdminInterestTrend().catch(() => ({
         scale: { divisor: 1_000_000, unit: "millions", label: "₦ millions" },
-        series: [] as { month: string; accrued: number; paid: number; accruedNaira?: number; paidNaira?: number }[],
+        series: [] as {
+          month: string;
+          accrued: number;
+          paid: number;
+          accruedNaira?: number;
+          paidNaira?: number;
+        }[],
       })),
       fetchAdminMaturitySchedule().catch(() => ({
         scale: { divisor: 1_000_000, unit: "millions", label: "₦ millions" },

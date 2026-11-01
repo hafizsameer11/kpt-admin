@@ -15,9 +15,7 @@ export function StatusPill({ status, onDark = false }: { status: UserStatus; onD
   return (
     <span
       className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-bold ring-1 ${
-        onDark
-          ? "bg-white/12 text-primary-foreground ring-white/20"
-          : STATUS_TONE[status]
+        onDark ? "bg-white/12 text-primary-foreground ring-white/20" : STATUS_TONE[status]
       }`}
     >
       <span
@@ -145,7 +143,9 @@ export function Stat({
           >
             {label}
           </p>
-          <p className="mt-1.5 font-display text-[23px] font-extrabold tracking-[-0.025em]">{value}</p>
+          <p className="mt-1.5 font-display text-[23px] font-extrabold tracking-[-0.025em]">
+            {value}
+          </p>
           {helper ? (
             <p
               className={`mt-0.5 text-[12px] ${
