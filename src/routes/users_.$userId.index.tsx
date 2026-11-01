@@ -107,8 +107,8 @@ function Overview() {
   const pools = [
     { key: "wallet", label: "Wallet", value: user.wallet, color: "var(--gold)", icon: Wallet, helper: "Uninvested cash" },
     { key: "call", label: "Call Account", value: user.call, color: "#4C7DF0", icon: CreditCard, helper: "Daily accrual" },
-    { key: "fixed", label: "Fixed", value: user.fixed, color: "#0B1D3A", icon: Lock, helper: "Locked principal" },
-    { key: "explore", label: "Explore", value: user.explore, color: "#6FA8FF", icon: TrendingUp, helper: "Marketplace" },
+    { key: "fixed", label: "Fixed", value: user.fixed, color: "#0B1D3A", icon: Lock, helper: "Principal + accrued" },
+    { key: "explore", label: "Explore", value: user.explore, color: "#6FA8FF", icon: TrendingUp, helper: "Principal + accrued" },
   ];
 
   const activeInvestments = investments.filter((i) => i.state === "active");

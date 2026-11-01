@@ -176,11 +176,21 @@ export async function adminLogout() {
 export async function fetchAdminDashboard() {
   return adminApi<{
     fum: number | null;
+    principal?: number | null;
     canViewAum?: boolean;
     users: number;
     pendingKyc: number;
     pendingWithdrawals: number;
-    breakdown: { wallet: number; call: number; placements: number } | null;
+    interestAccrued?: number;
+    interestPayable?: number;
+    breakdown: {
+      wallet: number;
+      call: number;
+      placements: number;
+      fixed?: number;
+      explore?: number;
+      accrued?: number;
+    } | null;
   }>("/v1/admin/dashboard");
 }
 

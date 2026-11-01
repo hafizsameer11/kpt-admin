@@ -102,13 +102,13 @@ function ProposeRatePage() {
     setBusy(true);
     void proposeAdminRate({
       bandId: selected.id,
-      proposedBps: Math.round(proposed * 100),
+      proposedBps: Math.round(proposed * 10000),
       effectiveFrom: `${effectiveDate}T00:00:00.000Z`,
       reason: reason.trim(),
     })
       .then(() => {
         toast.success("Rate change submitted for approval", {
-          description: `${selected.band} · ${selected.currentRate.toFixed(2)}% → ${proposed.toFixed(2)}%`,
+          description: `${selected.band} · ${selected.currentRate.toFixed(4)}% → ${proposed.toFixed(4)}%`,
         });
         navigate({ to: "/rates/approvals" });
       })
@@ -146,7 +146,7 @@ function ProposeRatePage() {
             <div className="grid gap-4 sm:grid-cols-2">
               <Field label="Current rate">
                 <div className="flex h-10 items-center rounded-lg border border-border bg-muted/40 px-3 text-[13.5px] font-extrabold tabular-nums text-muted-foreground">
-                  {(selected?.currentRate ?? 0).toFixed(2)}%
+                  {(selected?.currentRate ?? 0).toFixed(4)}%
                 </div>
               </Field>
               <Field label="Proposed rate" error={touched && !validRate ? "From 1% to 40%" : undefined}>
@@ -156,7 +156,7 @@ function ProposeRatePage() {
                     onChange={(e) => setRate(e.target.value.replace(/[^0-9.]/g, ""))}
                     onBlur={() => setTouched(true)}
                     inputMode="decimal"
-                    placeholder="0.00"
+                    placeholder="0.0000"
                     className="w-full bg-transparent text-[13.5px] font-extrabold tabular-nums outline-none"
                   />
                   <span className="text-[13px] font-bold text-muted-foreground">%</span>
@@ -226,13 +226,13 @@ function ProposeRatePage() {
               <div className="rounded-xl border border-border/70 bg-muted/40 p-3">
                 <p className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">Current</p>
                 <p className="mt-1 text-[20px] font-extrabold tabular-nums">
-                  {(selected?.currentRate ?? 0).toFixed(2)}%
+                  {(selected?.currentRate ?? 0).toFixed(4)}%
                 </p>
               </div>
               <div className="rounded-xl border border-brand/25 bg-brand/5 p-3">
                 <p className="text-[11px] font-bold uppercase tracking-wide text-brand">Proposed</p>
                 <p className="mt-1 text-[20px] font-extrabold tabular-nums text-brand">
-                  {validRate ? `${proposed.toFixed(2)}%` : "—"}
+                  {validRate ? `${proposed.toFixed(4)}%` : "—"}
                 </p>
               </div>
             </div>

@@ -107,7 +107,7 @@ function RateTablePage() {
         />
         <Stat
           label="Weighted rate"
-          value={`${totals.weightedRate.toFixed(2)}%`}
+          value={`${totals.weightedRate.toFixed(4)}%`}
           helper="Across placed principal"
           tone="gold"
           icon={TrendingUp}
@@ -208,10 +208,10 @@ function RateTablePage() {
                         </span>
                       </td>
                       <td className="px-5 py-3 text-right text-[14px] font-extrabold tabular-nums text-brand">
-                        {b.currentRate.toFixed(2)}%
+                        {b.currentRate.toFixed(4)}%
                       </td>
                       <td className="px-5 py-3 text-right text-[13px] tabular-nums text-muted-foreground">
-                        {b.previousRate.toFixed(2)}%
+                        {b.previousRate.toFixed(4)}%
                         {delta !== 0 ? (
                           <span
                             className={`ml-1.5 text-[11.5px] font-bold ${
