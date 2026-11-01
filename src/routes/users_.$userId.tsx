@@ -158,6 +158,9 @@ function AdminUserProfile() {
                 <p className="text-[11px] font-semibold uppercase tracking-wider text-primary-foreground/55">
                   Portfolio value
                 </p>
+                <p className="text-[10px] font-semibold text-primary-foreground/55">
+                  Includes accrued interest
+                </p>
                 <p className="mt-1 font-display text-[24px] font-extrabold tracking-[-0.02em]">
                   {naira(portfolioValue(user))}
                 </p>

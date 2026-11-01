@@ -61,8 +61,8 @@ function Balances() {
   const pools = [
     { label: "Wallet", value: wallet, helper: "Uninvested cash", tone: "bg-brand/30" },
     { label: "Call Account", value: call, helper: "Daily accrual, withdraw anytime", tone: "bg-brand/60" },
-    { label: "Fixed plans", value: fixed, helper: "Locked until maturity", tone: "bg-brand" },
-    { label: "Explore products", value: explore, helper: "Marketplace subscriptions", tone: "bg-gold" },
+    { label: "Fixed plans", value: fixed, helper: "Principal + interest earned so far", tone: "bg-brand" },
+    { label: "Explore products", value: explore, helper: "Principal + interest earned so far", tone: "bg-gold" },
   ];
 
   const submitAdjust = async () => {
