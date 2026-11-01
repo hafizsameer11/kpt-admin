@@ -129,7 +129,7 @@ function Investments() {
     setEditName(open.product);
     setEditPrincipal(moneyToInput(open.principal));
     {
-      const pct = open.ratePct ?? Number(open.rate.replace("%", "")) || 0;
+      const pct = (open.ratePct ?? Number(open.rate.replace("%", ""))) || 0;
       setEditRatePct(pct ? pct.toFixed(4).replace(/\.?0+$/, "") : "");
     }
     setEditTenor(open.tenorDays != null ? String(open.tenorDays) : "");
