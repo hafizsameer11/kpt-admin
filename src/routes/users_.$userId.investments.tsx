@@ -209,9 +209,12 @@ function Investments() {
         status: editStatus,
         maturityInstruction: editInstruction,
       };
-      if (dirtyYield === "payout" && editPayout.trim()) {
+      // Prefer exact payout/interest so SUPER totals stick (rate↔interest math truncates).
+      if (dirtyYield === "rate" && editRatePct.trim()) {
+        payload.ratePct = Number(editRatePct);
+      } else if (editPayout.trim()) {
         payload.expectedPayout = parseMoneyInput(editPayout);
-      } else if (dirtyYield === "interest" && editInterest.trim()) {
+      } else if (editInterest.trim()) {
         payload.expectedInterest = parseMoneyInput(editInterest);
       } else if (editRatePct.trim()) {
         payload.ratePct = Number(editRatePct);
