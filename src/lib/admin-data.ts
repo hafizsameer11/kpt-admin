@@ -4,7 +4,7 @@
  */
 
 export const naira = (value: number) =>
-  `₦${value.toLocaleString("en-NG", { maximumFractionDigits: 0 })}`;
+  `₦${value.toLocaleString("en-NG", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
 export const compactNaira = (value: number) => {
   if (value >= 1_000_000_000) return `₦${(value / 1_000_000_000).toFixed(2)}b`;

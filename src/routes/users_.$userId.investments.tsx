@@ -14,6 +14,7 @@ import { loadAdminUserPlacements } from "@/lib/admin-mappers";
 import { type AdminInvestment } from "@/lib/admin-users-data";
 import {
   formatMoneyInput,
+  formatRateInput,
   isSuperAdminSession,
   moneyToInput,
   parseMoneyInput,
@@ -127,7 +128,10 @@ function Investments() {
     }
     setEditName(open.product);
     setEditPrincipal(moneyToInput(open.principal));
-    setEditRatePct(String((open.ratePct ?? Number(open.rate.replace("%", ""))) || ""));
+    {
+      const pct = open.ratePct ?? Number(open.rate.replace("%", "")) || 0;
+      setEditRatePct(pct ? pct.toFixed(4).replace(/\.?0+$/, "") : "");
+    }
     setEditTenor(open.tenorDays != null ? String(open.tenorDays) : "");
     setEditStart(open.startIso || todayIso());
     setEditMaturity(open.maturityIso || "");
@@ -345,7 +349,7 @@ function Investments() {
                       value={editRatePct}
                       onChange={(e) => {
                         setDirtyYield("rate");
-                        setEditRatePct(e.target.value.replace(/[^\d.]/g, ""));
+                        setEditRatePct(formatRateInput(e.target.value));
                       }}
                       className={fieldClass}
                     />
@@ -674,7 +678,7 @@ function Investments() {
                         <span className={labelClass}>Rate (% p.a.)</span>
                         <input
                           value={ratePct}
-                          onChange={(e) => setRatePct(e.target.value.replace(/[^\d.]/g, ""))}
+                          onChange={(e) => setRatePct(formatRateInput(e.target.value))}
                           placeholder="Band default if empty"
                           className={fieldClass}
                         />

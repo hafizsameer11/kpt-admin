@@ -197,7 +197,7 @@ export function mapAdminUserPlacement(
     id: row.id,
     product: row.name,
     principal: row.principal,
-    rate: `${row.ratePct.toFixed(1)}%`,
+    rate: `${row.ratePct.toFixed(4)}%`,
     ratePct: row.ratePct,
     start: formatAdminDate(startRaw),
     startIso: toIsoDay(startRaw) ?? "",
@@ -400,9 +400,9 @@ export function mapRateBand(
     principal?: number;
   },
 ): RateBand {
-  const liveRate = row.rateBps / 100;
+  const liveRate = row.rateBps / 10000;
   const previous =
-    row.previousBps != null ? row.previousBps / 100 : liveRate;
+    row.previousBps != null ? row.previousBps / 10000 : liveRate;
   const maxDays = row.maxDays ?? row.minDays;
   const band = rateBandTenorLabel(row.code, row.minDays, row.maxDays);
   const status: RateStatus =
@@ -413,8 +413,8 @@ export function mapRateBand(
         : row.status === "retired"
           ? "retired"
           : "active";
-  const pendingRate = row.pendingBps != null ? row.pendingBps / 100 : null;
-  const scheduledRate = row.scheduledBps != null ? row.scheduledBps / 100 : null;
+  const pendingRate = row.pendingBps != null ? row.pendingBps / 10000 : null;
+  const scheduledRate = row.scheduledBps != null ? row.scheduledBps / 10000 : null;
   const currentRate =
     status === "pending" && pendingRate != null
       ? pendingRate
@@ -427,7 +427,7 @@ export function mapRateBand(
     row.pendingBps != null && row.pendingFrom
       ? [
           {
-            rate: row.pendingBps / 100,
+            rate: row.pendingBps / 10000,
             effectiveDate: row.pendingFrom,
             by: "—",
             note: "Awaiting second approver",
@@ -436,7 +436,7 @@ export function mapRateBand(
       : row.scheduledBps != null && row.scheduledFrom
         ? [
             {
-              rate: row.scheduledBps / 100,
+              rate: row.scheduledBps / 10000,
               effectiveDate: row.scheduledFrom,
               by: "—",
               note: "Approved — applies on effective date",
@@ -483,13 +483,13 @@ export function mapRateRequest(
     typeof row.currentRate === "number"
       ? row.currentRate
       : typeof row.currentBps === "number"
-        ? row.currentBps / 100
+        ? row.currentBps / 10000
         : 0;
   const proposedRate =
     typeof row.proposedRate === "number"
       ? row.proposedRate
       : typeof row.proposedBps === "number"
-        ? row.proposedBps / 100
+        ? row.proposedBps / 10000
         : 0;
   const effectiveRaw =
     typeof row.effectiveFrom === "string"

@@ -5,19 +5,36 @@ export function isSuperAdminSession() {
   return String(getAdminSession()?.role || "").toUpperCase() === "SUPER";
 }
 
-/** Money input that keeps up to 2 decimal places (kobo) without shifting on format. */
-export function formatMoneyInput(raw: string) {
+function formatDecimalInput(raw: string, maxDecimals: number) {
   const cleaned = raw.replace(/[^\d.]/g, "");
   if (!cleaned) return "";
   const firstDot = cleaned.indexOf(".");
   let intPart = firstDot >= 0 ? cleaned.slice(0, firstDot) : cleaned;
-  let decPart = firstDot >= 0 ? cleaned.slice(firstDot + 1).replace(/\./g, "").slice(0, 2) : null;
+  let decPart =
+    firstDot >= 0 ? cleaned.slice(firstDot + 1).replace(/\./g, "").slice(0, maxDecimals) : null;
   intPart = intPart.replace(/^0+(?=\d)/, "") || (decPart != null ? "0" : intPart);
   if (decPart != null) {
     const intFormatted = intPart ? Number(intPart).toLocaleString("en-NG") : "0";
     return `${intFormatted}.${decPart}`;
   }
   return intPart ? Number(intPart).toLocaleString("en-NG") : "";
+}
+
+/** Money input that keeps up to 2 decimal places (kobo) without shifting on format. */
+export function formatMoneyInput(raw: string) {
+  return formatDecimalInput(raw, 2);
+}
+
+/** Rate % input — up to 4 decimal places. */
+export function formatRateInput(raw: string) {
+  const cleaned = raw.replace(/[^\d.]/g, "");
+  if (!cleaned) return "";
+  const firstDot = cleaned.indexOf(".");
+  const intPart = firstDot >= 0 ? cleaned.slice(0, firstDot) : cleaned;
+  const decPart =
+    firstDot >= 0 ? cleaned.slice(firstDot + 1).replace(/\./g, "").slice(0, 4) : null;
+  if (decPart != null) return `${intPart || "0"}.${decPart}`;
+  return intPart;
 }
 
 export function parseMoneyInput(raw: string) {
