@@ -43,6 +43,7 @@ import {
   hydrateAdminDashboardFromApi,
   INTEREST_ACCRUED,
   INTEREST_PAYABLE,
+  PRINCIPAL_TOTAL,
   INTEREST_TREND,
   INTEREST_TREND_UNIT,
   MATURITIES,
@@ -220,7 +221,7 @@ function AdminDashboard() {
             <div className="relative flex flex-wrap items-start justify-between gap-4">
               <div>
                 <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-primary-foreground/55">
-                  Total funds under management
+                  Total AUM · aggregate portfolio value
                 </p>
                 <p className="mt-2 font-display text-[38px] font-extrabold leading-none tracking-[-0.03em] md:text-[46px]">
                   {showAum ? naira(FUM) : "Restricted"}
@@ -238,26 +239,36 @@ function AdminDashboard() {
                   )}
                   <span className="text-[12px] text-primary-foreground/60">
                     {showAum
-                      ? "Across wallet, call, fixed and Explore balances"
+                      ? "Principal + interest accrued to date"
                       : "AUM is hidden for your role"}
                     {customerCount != null ? ` · ${customerCount.toLocaleString("en-NG")} customers` : ""}
                   </span>
                 </div>
               </div>
 
-              <div className="rounded-xl bg-white/10 p-4">
+              <div className="min-w-[200px] rounded-xl bg-white/10 p-4">
                 <p className="text-[11px] font-semibold uppercase tracking-wider text-primary-foreground/55">
-                  Interest position
+                  As at today
                 </p>
                 <div className="mt-2 space-y-1.5">
                   <div className="flex items-baseline justify-between gap-6">
-                    <span className="text-[12px] text-primary-foreground/70">Accrued</span>
-                    <span className="text-[15px] font-bold">{naira(INTEREST_ACCRUED)}</span>
+                    <span className="text-[12px] text-primary-foreground/70">Principal</span>
+                    <span className="text-[15px] font-bold">{showAum ? naira(PRINCIPAL_TOTAL) : "—"}</span>
                   </div>
                   <div className="flex items-baseline justify-between gap-6">
-                    <span className="text-[12px] text-primary-foreground/70">Payable</span>
+                    <span className="text-[12px] text-primary-foreground/70">Interest accrued</span>
+                    <span className="text-[15px] font-bold">{showAum ? naira(INTEREST_ACCRUED) : "—"}</span>
+                  </div>
+                  <div className="flex items-baseline justify-between gap-6 border-t border-white/15 pt-1.5">
+                    <span className="text-[12px] text-primary-foreground/70">Total AUM</span>
                     <span className="text-[15px] font-bold text-gold">
-                      {naira(INTEREST_PAYABLE)}
+                      {showAum ? naira(FUM) : "—"}
+                    </span>
+                  </div>
+                  <div className="flex items-baseline justify-between gap-6 pt-0.5">
+                    <span className="text-[11px] text-primary-foreground/50">Still to maturity</span>
+                    <span className="text-[12px] font-semibold text-primary-foreground/70">
+                      {showAum ? naira(INTEREST_PAYABLE) : "—"}
                     </span>
                   </div>
                 </div>
@@ -551,10 +562,10 @@ function AdminDashboard() {
           {/* ADM-011 — FUM breakdown */}
           <section className="card-surface p-5">
             <h2 className="font-display text-[15px] font-extrabold tracking-[-0.01em]">
-              FUM breakdown
+              AUM breakdown
             </h2>
             <p className="mt-1 text-[12px] text-muted-foreground">
-              Where customer money currently sits.
+              Principal by product plus interest accrued to date.
             </p>
 
             <div className="mt-4 grid items-center gap-4 sm:grid-cols-[minmax(0,170px)_minmax(0,1fr)]">
@@ -600,7 +611,7 @@ function AdminDashboard() {
                       <span className="shrink-0 text-[13px] font-bold tabular-nums">
                         {naira(s.value)}
                         <span className="ml-2 text-[11.5px] font-semibold text-muted-foreground">
-                          {((s.value / FUM) * 100).toFixed(1)}%
+                          {FUM > 0 ? ((s.value / FUM) * 100).toFixed(1) : "0.0"}%
                         </span>
                       </span>
                     </li>

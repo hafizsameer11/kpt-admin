@@ -20,8 +20,12 @@ export let CALL_PRINCIPAL = 0;
 export let FIXED_PRINCIPAL = 0;
 export let EXPLORE_PRINCIPAL = 0;
 
+/** Aggregate AUM = principal + accrued interest to date. */
 export let FUM =
   WALLET_BALANCES + CALL_PRINCIPAL + FIXED_PRINCIPAL + EXPLORE_PRINCIPAL;
+
+/** Cash + placement principal only (excludes accrued interest). */
+export let PRINCIPAL_TOTAL = FUM;
 
 export let INTEREST_ACCRUED = 0;
 export let INTEREST_PAYABLE = 0;
@@ -78,6 +82,7 @@ export const FUM_BREAKDOWN: Slice[] = [
   { id: "explore", label: "Explore products", value: EXPLORE_PRINCIPAL, tone: "bg-gold" },
   { id: "call", label: "Call money", value: CALL_PRINCIPAL, tone: "bg-brand/60" },
   { id: "wallet", label: "Wallet balances", value: WALLET_BALANCES, tone: "bg-brand/30" },
+  { id: "accrued", label: "Interest accrued", value: INTEREST_ACCRUED, tone: "bg-gold/50" },
 ];
 
 /** Pull live FUM + secondary dashboard panels from kipit-api. */
@@ -124,12 +129,16 @@ export async function hydrateAdminDashboardFromApi() {
     CAN_VIEW_AUM = dash.canViewAum !== false && dash.fum != null && dash.breakdown != null;
     WALLET_BALANCES = dash.breakdown?.wallet ?? 0;
     CALL_PRINCIPAL = dash.breakdown?.call ?? 0;
-    FIXED_PRINCIPAL = dash.breakdown?.placements ?? 0;
-    EXPLORE_PRINCIPAL = 0;
-    FUM = dash.fum ?? 0;
+    FIXED_PRINCIPAL = dash.breakdown?.fixed ?? dash.breakdown?.placements ?? 0;
+    EXPLORE_PRINCIPAL = dash.breakdown?.explore ?? 0;
+    PRINCIPAL_TOTAL =
+      typeof dash.principal === "number"
+        ? dash.principal
+        : WALLET_BALANCES + CALL_PRINCIPAL + FIXED_PRINCIPAL + EXPLORE_PRINCIPAL;
+    INTEREST_ACCRUED = dash.interestAccrued ?? dash.breakdown?.accrued ?? 0;
+    INTEREST_PAYABLE = dash.interestPayable ?? 0;
+    FUM = dash.fum ?? PRINCIPAL_TOTAL + INTEREST_ACCRUED;
     FUM_CHANGE_PCT = 0;
-    INTEREST_ACCRUED = 0;
-    INTEREST_PAYABLE = 0;
     for (let i = 0; i < FUM_SERIES.length; i++) FUM_SERIES[i] = 0;
     zeroDemoChartSeries();
     if (flowTrend.length) {
@@ -154,9 +163,6 @@ export async function hydrateAdminDashboardFromApi() {
           paid: row.paid,
         })),
       );
-      const latest = interestTrend.series[interestTrend.series.length - 1];
-      INTEREST_ACCRUED = latest?.accruedNaira ?? Math.round((latest?.accrued ?? 0) * interestTrend.scale.divisor);
-      INTEREST_PAYABLE = latest?.paidNaira ?? Math.round((latest?.paid ?? 0) * interestTrend.scale.divisor);
     }
     if (maturitySchedule.series.length) {
       MATURITY_SCHEDULE_UNIT = maturitySchedule.scale.label;
@@ -174,6 +180,7 @@ export async function hydrateAdminDashboardFromApi() {
       call: CALL_PRINCIPAL,
       fixed: FIXED_PRINCIPAL,
       explore: EXPLORE_PRINCIPAL,
+      accrued: INTEREST_ACCRUED,
     };
     for (const m of PRIMARY_METRICS) {
       if (byId[m.id] !== undefined) {
