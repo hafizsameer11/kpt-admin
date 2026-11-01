@@ -233,8 +233,7 @@ export type AdminUsersListParams = {
 };
 
 export async function fetchAdminUsers(params: AdminUsersListParams | string = {}) {
-  const p: AdminUsersListParams =
-    typeof params === "string" ? { q: params } : params ?? {};
+  const p: AdminUsersListParams = typeof params === "string" ? { q: params } : (params ?? {});
   const qs = new URLSearchParams();
   if (p.q?.trim()) qs.set("q", p.q.trim());
   if (p.status && p.status !== "all") qs.set("status", String(p.status));
@@ -426,10 +425,7 @@ export async function adjustAdminUserBalance(
 }
 
 /** SUPER: patch customer profile. */
-export async function updateAdminUserProfile(
-  userId: string,
-  input: Record<string, unknown>,
-) {
+export async function updateAdminUserProfile(userId: string, input: Record<string, unknown>) {
   return adminApi<Record<string, unknown>>(`/v1/admin/users/${userId}`, {
     method: "PATCH",
     body: JSON.stringify(input),
@@ -603,9 +599,11 @@ export async function fetchAdminWithdrawals() {
 }
 
 export async function fetchAdminWithdrawal(id: string) {
-  return adminApi<AdminWithdrawalRow & { balances: { wallet: number; call: number; fixed: number; explore: number } }>(
-    `/v1/admin/withdrawals/${id}`,
-  );
+  return adminApi<
+    AdminWithdrawalRow & {
+      balances: { wallet: number; call: number; fixed: number; explore: number };
+    }
+  >(`/v1/admin/withdrawals/${id}`);
 }
 
 export async function completeAdminWithdrawal(id: string) {
@@ -1034,13 +1032,16 @@ export async function createAdminCampaign(input: {
   status?: string;
   scheduledAt?: string | null;
 }) {
-  return adminApi<{ id: string; name: string; status: string; delivered?: number; recipients?: number }>(
-    "/v1/admin/campaigns",
-    {
-      method: "POST",
-      body: JSON.stringify(input),
-    },
-  );
+  return adminApi<{
+    id: string;
+    name: string;
+    status: string;
+    delivered?: number;
+    recipients?: number;
+  }>("/v1/admin/campaigns", {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
 }
 
 export async function updateAdminCampaign(
@@ -1251,9 +1252,9 @@ export async function fetchAdminTeam() {
 }
 
 export async function fetchAdminJobs() {
-  return adminApi<{ id: string; name: string; status: string; startedAt: string; finishedAt: string | null }[]>(
-    "/v1/admin/jobs",
-  );
+  return adminApi<
+    { id: string; name: string; status: string; startedAt: string; finishedAt: string | null }[]
+  >("/v1/admin/jobs");
 }
 
 export async function fetchAdminChatSessions() {
@@ -1486,7 +1487,13 @@ export async function fetchAdminInterestTrend() {
   const raw = await adminApi<
     | {
         scale?: { divisor: number; unit: string; label: string };
-        series: { month: string; accrued: number; paid: number; accruedNaira?: number; paidNaira?: number }[];
+        series: {
+          month: string;
+          accrued: number;
+          paid: number;
+          accruedNaira?: number;
+          paidNaira?: number;
+        }[];
       }
     | { month: string; accrued: number; paid: number; accruedNaira?: number; paidNaira?: number }[]
   >("/v1/admin/dashboard/interest-trend");
@@ -1529,9 +1536,7 @@ export async function fetchAdminPrincipalByTenor() {
 }
 
 export async function fetchAdminPrincipalByProduct() {
-  return adminApi<{ product: string; value: number }[]>(
-    "/v1/admin/dashboard/principal-by-product",
-  );
+  return adminApi<{ product: string; value: number }[]>("/v1/admin/dashboard/principal-by-product");
 }
 
 /* ------------------------------------------------------------------ */
@@ -1551,9 +1556,7 @@ export type AdminAnalytics = {
 };
 
 export async function fetchAdminAnalytics(range: AnalyticsRange = "6 months") {
-  return adminApi<AdminAnalytics>(
-    `/v1/admin/analytics?range=${encodeURIComponent(range)}`,
-  );
+  return adminApi<AdminAnalytics>(`/v1/admin/analytics?range=${encodeURIComponent(range)}`);
 }
 
 export type AdminFeeRow = { id: string; label: string; value: string; note: string };

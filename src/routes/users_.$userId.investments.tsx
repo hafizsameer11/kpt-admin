@@ -84,7 +84,9 @@ function Investments() {
   const [editPayout, setEditPayout] = useState("");
   const [editAccrued, setEditAccrued] = useState("");
   const [editStatus, setEditStatus] = useState<"ACTIVE" | "MATURED" | "CLOSED">("ACTIVE");
-  const [editInstruction, setEditInstruction] = useState<"WALLET" | "ROLLOVER" | "PAYOUT">("WALLET");
+  const [editInstruction, setEditInstruction] = useState<"WALLET" | "ROLLOVER" | "PAYOUT">(
+    "WALLET",
+  );
   const [dirtyYield, setDirtyYield] = useState<"rate" | "interest" | "payout" | null>(null);
 
   const resetCreateForm = () => {
@@ -129,7 +131,7 @@ function Investments() {
     setEditName(open.product);
     setEditPrincipal(moneyToInput(open.principal));
     {
-      const pct = open.ratePct ?? Number(open.rate.replace("%", "")) || 0;
+      const pct = (open.ratePct ?? Number(open.rate.replace("%", ""))) || 0;
       setEditRatePct(pct ? pct.toFixed(4).replace(/\.?0+$/, "") : "");
     }
     setEditTenor(open.tenorDays != null ? String(open.tenorDays) : "");
@@ -143,9 +145,7 @@ function Investments() {
     const raw = (open.statusRaw || "").toUpperCase();
     setEditStatus(raw === "MATURED" || raw === "CLOSED" ? raw : "ACTIVE");
     const instr = (open.maturityInstruction || "WALLET").toUpperCase();
-    setEditInstruction(
-      instr === "ROLLOVER" || instr === "PAYOUT" ? instr : "WALLET",
-    );
+    setEditInstruction(instr === "ROLLOVER" || instr === "PAYOUT" ? instr : "WALLET");
     setDirtyYield(null);
   }, [open]);
 
@@ -291,7 +291,9 @@ function Investments() {
                         <td className="px-5 py-3 text-right text-[13px]">{naira(r.principal)}</td>
                         <td className="px-5 py-3 text-[13px] font-bold text-brand">{r.rate}</td>
                         <td className="px-5 py-3 text-[13px] text-muted-foreground">{r.start}</td>
-                        <td className="px-5 py-3 text-[13px] text-muted-foreground">{r.maturity}</td>
+                        <td className="px-5 py-3 text-[13px] text-muted-foreground">
+                          {r.maturity}
+                        </td>
                         <td className="px-5 py-3 text-right text-[13px] font-bold">
                           {naira(r.expected)}
                         </td>
@@ -606,7 +608,9 @@ function Investments() {
                   type="button"
                   onClick={() => setKind(k)}
                   className={`rounded-full px-3 py-1.5 text-[12px] font-bold ${
-                    kind === k ? "bg-brand text-primary-foreground" : "bg-muted text-muted-foreground"
+                    kind === k
+                      ? "bg-brand text-primary-foreground"
+                      : "bg-muted text-muted-foreground"
                   }`}
                 >
                   {k === "FIXED" ? "Fixed plan" : "Call Account"}

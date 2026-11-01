@@ -35,7 +35,9 @@ export function AdminAuthShell({
         <div className="rounded-2xl border border-white/12 bg-white/8 p-7 backdrop-blur">
           <h1 className="font-display text-[22px] font-extrabold tracking-[-0.02em]">{title}</h1>
           {subtitle ? (
-            <p className="mt-1.5 text-[13px] leading-relaxed text-brand-foreground/70">{subtitle}</p>
+            <p className="mt-1.5 text-[13px] leading-relaxed text-brand-foreground/70">
+              {subtitle}
+            </p>
           ) : null}
           <div className="mt-6">{children}</div>
         </div>
