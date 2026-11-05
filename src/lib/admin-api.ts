@@ -619,6 +619,52 @@ export async function declineAdminWithdrawal(id: string, reason: string) {
   });
 }
 
+export type AdminAccountDeletionRow = {
+  id: string;
+  status: "SUBMITTED" | "PROCESSING" | "REJECTED" | "DELETED";
+  reasonCode: string;
+  reasonLabel?: string;
+  reasonDetail?: string | null;
+  rejectionReason?: string | null;
+  scheduledPurgeAt: string;
+  createdAt: string;
+  processedAt?: string | null;
+  deletedAt?: string | null;
+  user: {
+    id: string;
+    name: string;
+    email: string | null;
+    phone?: string | null;
+    frozen?: boolean;
+    frozenReason?: string | null;
+    kycTier?: string;
+    createdAt?: string;
+  };
+  balances?: { wallet: number; call: number; fixed: number; explore: number; accrued?: number };
+  activePlacements?: number;
+  pendingWithdrawals?: number;
+  purgeEligible?: boolean;
+};
+
+export async function fetchAdminAccountDeletions(status?: string) {
+  const q = status ? `?status=${encodeURIComponent(status)}` : "";
+  return adminApi<AdminAccountDeletionRow[]>(`/v1/admin/account-deletions${q}`);
+}
+
+export async function fetchAdminAccountDeletion(id: string) {
+  return adminApi<AdminAccountDeletionRow>(`/v1/admin/account-deletions/${id}`);
+}
+
+export async function patchAdminAccountDeletion(
+  id: string,
+  body: { status: "PROCESSING" | "REJECTED" | "DELETED"; rejectionReason?: string },
+) {
+  return adminApi<AdminAccountDeletionRow>(`/v1/admin/account-deletions/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify(body),
+  });
+}
+
 export async function fetchAdminRates() {
   return adminApi<
     {
