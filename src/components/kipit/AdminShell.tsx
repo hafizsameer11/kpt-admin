@@ -24,6 +24,7 @@ import {
   LockKeyhole,
   LogOut,
   Mail,
+  UserRoundX,
   X,
   type LucideIcon,
 } from "lucide-react";
@@ -36,11 +37,7 @@ import {
   lockAdminSession,
   type AdminSession,
 } from "@/lib/admin-auth";
-import {
-  adminCanAccess,
-  hydrateAdminPermissionsFromApi,
-} from "@/lib/admin-permissions";
-
+import { adminCanAccess, hydrateAdminPermissionsFromApi } from "@/lib/admin-permissions";
 
 type Item = { label: string; to: string; icon: LucideIcon; soon?: boolean; anyOf?: string[] };
 type Group = { heading: string; items: Item[] };
@@ -69,6 +66,12 @@ const GROUPS: Group[] = [
         icon: Banknote,
         anyOf: ["withdrawal.process", "withdrawal.decline"],
       },
+      {
+        label: "Account deletions",
+        to: "/account-deletions",
+        icon: UserRoundX,
+        anyOf: ["withdrawal.process", "withdrawal.decline", "users.view"],
+      },
       { label: "Reconciliation", to: "/reconciliation", icon: Scale, anyOf: ["recon.resolve"] },
     ],
   },
@@ -95,14 +98,29 @@ const GROUPS: Group[] = [
     items: [
       { label: "Marketing", to: "/marketing", icon: Megaphone, anyOf: ["marketing.manage"] },
       { label: "Support", to: "/support", icon: LifeBuoy, anyOf: ["support.reply"] },
-      { label: "Ask AI log", to: "/ai-chat", icon: MessageSquare, anyOf: ["users.view", "support.reply", "audit.view"] },
+      {
+        label: "Ask AI log",
+        to: "/ai-chat",
+        icon: MessageSquare,
+        anyOf: ["users.view", "support.reply", "audit.view"],
+      },
     ],
   },
   {
     heading: "Insights",
     items: [
-      { label: "Reports & analytics", to: "/analytics", icon: LineChart, anyOf: ["audit.view", "txn.view"] },
-      { label: "Reports centre", to: "/reports", icon: FileSpreadsheet, anyOf: ["audit.view", "txn.view"] },
+      {
+        label: "Reports & analytics",
+        to: "/analytics",
+        icon: LineChart,
+        anyOf: ["audit.view", "txn.view"],
+      },
+      {
+        label: "Reports centre",
+        to: "/reports",
+        icon: FileSpreadsheet,
+        anyOf: ["audit.view", "txn.view"],
+      },
     ],
   },
   {
@@ -112,7 +130,12 @@ const GROUPS: Group[] = [
       { label: "Roles & permissions", to: "/team/roles", icon: KeyRound, anyOf: ["role.manage"] },
       { label: "Audit log", to: "/audit", icon: ScrollText, anyOf: ["audit.view"] },
       { label: "Notifications", to: "/notifications", icon: Bell },
-      { label: "System settings", to: "/settings", icon: Settings, anyOf: ["role.manage", "admin.manage"] },
+      {
+        label: "System settings",
+        to: "/settings",
+        icon: Settings,
+        anyOf: ["role.manage", "admin.manage"],
+      },
       {
         label: "Withdrawal alerts",
         to: "/settings/withdrawal-alerts",
@@ -204,8 +227,6 @@ export function AdminShell({
     .slice(0, 2)
     .toUpperCase();
 
-
-
   return (
     <div className="min-h-screen bg-muted/40">
       <aside className="fixed inset-y-0 left-0 z-40 hidden w-[16.5rem] flex-col bg-brand-gradient text-primary-foreground lg:flex">
@@ -292,7 +313,6 @@ export function AdminShell({
               <LogOut className="size-3.5" /> Sign out
             </button>
           </div>
-
         </div>
       </aside>
 
@@ -352,7 +372,6 @@ export function AdminShell({
               <Bell className="size-4" />
               <span className="absolute right-2 top-2 size-2 rounded-full bg-gold" />
             </Link>
-
           </div>
         </header>
 

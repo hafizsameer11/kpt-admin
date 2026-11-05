@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AccessHelpRouteImport } from './routes/access-help'
+import { Route as AccountDeletionsRouteImport } from './routes/account-deletions'
 import { Route as AdjustmentsRouteImport } from './routes/adjustments'
 import { Route as AiChatRouteImport } from './routes/ai-chat'
 import { Route as AnalyticsRouteImport } from './routes/analytics'
@@ -33,6 +34,7 @@ import { Route as TransactionsRouteImport } from './routes/transactions'
 import { Route as UsersRouteImport } from './routes/users'
 import { Route as VerifyRouteImport } from './routes/verify'
 import { Route as WithdrawalsRouteImport } from './routes/withdrawals'
+import { Route as AccountDeletionsDeletionIdRouteImport } from './routes/account-deletions_.$deletionId'
 import { Route as AdjustmentsRequestIdRouteImport } from './routes/adjustments_.$requestId'
 import { Route as AdjustmentsNewRouteImport } from './routes/adjustments_.new'
 import { Route as AiChatSessionIdRouteImport } from './routes/ai-chat_.$sessionId'
@@ -89,6 +91,11 @@ const IndexRoute = IndexRouteImport.update({
 const AccessHelpRoute = AccessHelpRouteImport.update({
   id: '/access-help',
   path: '/access-help',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AccountDeletionsRoute = AccountDeletionsRouteImport.update({
+  id: '/account-deletions',
+  path: '/account-deletions',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AdjustmentsRoute = AdjustmentsRouteImport.update({
@@ -201,6 +208,12 @@ const WithdrawalsRoute = WithdrawalsRouteImport.update({
   path: '/withdrawals',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AccountDeletionsDeletionIdRoute =
+  AccountDeletionsDeletionIdRouteImport.update({
+    id: '/account-deletions_/$deletionId',
+    path: '/account-deletions/$deletionId',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const AdjustmentsRequestIdRoute = AdjustmentsRequestIdRouteImport.update({
   id: '/adjustments_/$requestId',
   path: '/adjustments/$requestId',
@@ -404,11 +417,6 @@ const UsersUserIdBalancesRoute = UsersUserIdBalancesRouteImport.update({
   path: '/balances',
   getParentRoute: () => UsersUserIdRoute,
 } as any)
-const UsersUserIdProfileRoute = UsersUserIdProfileRouteImport.update({
-  id: '/profile',
-  path: '/profile',
-  getParentRoute: () => UsersUserIdRoute,
-} as any)
 const UsersUserIdFrozenRoute = UsersUserIdFrozenRouteImport.update({
   id: '/frozen',
   path: '/frozen',
@@ -422,6 +430,11 @@ const UsersUserIdInvestmentsRoute = UsersUserIdInvestmentsRouteImport.update({
 const UsersUserIdKycRoute = UsersUserIdKycRouteImport.update({
   id: '/kyc',
   path: '/kyc',
+  getParentRoute: () => UsersUserIdRoute,
+} as any)
+const UsersUserIdProfileRoute = UsersUserIdProfileRouteImport.update({
+  id: '/profile',
+  path: '/profile',
   getParentRoute: () => UsersUserIdRoute,
 } as any)
 const UsersUserIdSessionsRoute = UsersUserIdSessionsRouteImport.update({
@@ -443,6 +456,7 @@ const UsersUserIdTransactionsRoute = UsersUserIdTransactionsRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/access-help': typeof AccessHelpRoute
+  '/account-deletions': typeof AccountDeletionsRoute
   '/adjustments': typeof AdjustmentsRoute
   '/ai-chat': typeof AiChatRoute
   '/analytics': typeof AnalyticsRoute
@@ -465,6 +479,7 @@ export interface FileRoutesByFullPath {
   '/users': typeof UsersRoute
   '/verify': typeof VerifyRoute
   '/withdrawals': typeof WithdrawalsRoute
+  '/account-deletions/$deletionId': typeof AccountDeletionsDeletionIdRoute
   '/adjustments/$requestId': typeof AdjustmentsRequestIdRoute
   '/adjustments/new': typeof AdjustmentsNewRoute
   '/ai-chat/$sessionId': typeof AiChatSessionIdRoute
@@ -504,10 +519,10 @@ export interface FileRoutesByFullPath {
   '/reconciliation/records/$recordId': typeof ReconciliationRecordsRecordIdRoute
   '/users/$userId/audit': typeof UsersUserIdAuditRoute
   '/users/$userId/balances': typeof UsersUserIdBalancesRoute
-  '/users/$userId/profile': typeof UsersUserIdProfileRoute
   '/users/$userId/frozen': typeof UsersUserIdFrozenRoute
   '/users/$userId/investments': typeof UsersUserIdInvestmentsRoute
   '/users/$userId/kyc': typeof UsersUserIdKycRoute
+  '/users/$userId/profile': typeof UsersUserIdProfileRoute
   '/users/$userId/sessions': typeof UsersUserIdSessionsRoute
   '/users/$userId/support': typeof UsersUserIdSupportRoute
   '/users/$userId/transactions': typeof UsersUserIdTransactionsRoute
@@ -516,6 +531,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/access-help': typeof AccessHelpRoute
+  '/account-deletions': typeof AccountDeletionsRoute
   '/adjustments': typeof AdjustmentsRoute
   '/ai-chat': typeof AiChatRoute
   '/analytics': typeof AnalyticsRoute
@@ -538,6 +554,7 @@ export interface FileRoutesByTo {
   '/users': typeof UsersRoute
   '/verify': typeof VerifyRoute
   '/withdrawals': typeof WithdrawalsRoute
+  '/account-deletions/$deletionId': typeof AccountDeletionsDeletionIdRoute
   '/adjustments/$requestId': typeof AdjustmentsRequestIdRoute
   '/adjustments/new': typeof AdjustmentsNewRoute
   '/ai-chat/$sessionId': typeof AiChatSessionIdRoute
@@ -576,10 +593,10 @@ export interface FileRoutesByTo {
   '/reconciliation/records/$recordId': typeof ReconciliationRecordsRecordIdRoute
   '/users/$userId/audit': typeof UsersUserIdAuditRoute
   '/users/$userId/balances': typeof UsersUserIdBalancesRoute
-  '/users/$userId/profile': typeof UsersUserIdProfileRoute
   '/users/$userId/frozen': typeof UsersUserIdFrozenRoute
   '/users/$userId/investments': typeof UsersUserIdInvestmentsRoute
   '/users/$userId/kyc': typeof UsersUserIdKycRoute
+  '/users/$userId/profile': typeof UsersUserIdProfileRoute
   '/users/$userId/sessions': typeof UsersUserIdSessionsRoute
   '/users/$userId/support': typeof UsersUserIdSupportRoute
   '/users/$userId/transactions': typeof UsersUserIdTransactionsRoute
@@ -589,6 +606,7 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/access-help': typeof AccessHelpRoute
+  '/account-deletions': typeof AccountDeletionsRoute
   '/adjustments': typeof AdjustmentsRoute
   '/ai-chat': typeof AiChatRoute
   '/analytics': typeof AnalyticsRoute
@@ -611,6 +629,7 @@ export interface FileRoutesById {
   '/users': typeof UsersRoute
   '/verify': typeof VerifyRoute
   '/withdrawals': typeof WithdrawalsRoute
+  '/account-deletions_/$deletionId': typeof AccountDeletionsDeletionIdRoute
   '/adjustments_/$requestId': typeof AdjustmentsRequestIdRoute
   '/adjustments_/new': typeof AdjustmentsNewRoute
   '/ai-chat_/$sessionId': typeof AiChatSessionIdRoute
@@ -650,10 +669,10 @@ export interface FileRoutesById {
   '/reconciliation_/records_/$recordId': typeof ReconciliationRecordsRecordIdRoute
   '/users_/$userId/audit': typeof UsersUserIdAuditRoute
   '/users_/$userId/balances': typeof UsersUserIdBalancesRoute
-  '/users_/$userId/profile': typeof UsersUserIdProfileRoute
   '/users_/$userId/frozen': typeof UsersUserIdFrozenRoute
   '/users_/$userId/investments': typeof UsersUserIdInvestmentsRoute
   '/users_/$userId/kyc': typeof UsersUserIdKycRoute
+  '/users_/$userId/profile': typeof UsersUserIdProfileRoute
   '/users_/$userId/sessions': typeof UsersUserIdSessionsRoute
   '/users_/$userId/support': typeof UsersUserIdSupportRoute
   '/users_/$userId/transactions': typeof UsersUserIdTransactionsRoute
@@ -664,6 +683,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/access-help'
+    | '/account-deletions'
     | '/adjustments'
     | '/ai-chat'
     | '/analytics'
@@ -686,6 +706,7 @@ export interface FileRouteTypes {
     | '/users'
     | '/verify'
     | '/withdrawals'
+    | '/account-deletions/$deletionId'
     | '/adjustments/$requestId'
     | '/adjustments/new'
     | '/ai-chat/$sessionId'
@@ -725,10 +746,10 @@ export interface FileRouteTypes {
     | '/reconciliation/records/$recordId'
     | '/users/$userId/audit'
     | '/users/$userId/balances'
-    | '/users/$userId/profile'
     | '/users/$userId/frozen'
     | '/users/$userId/investments'
     | '/users/$userId/kyc'
+    | '/users/$userId/profile'
     | '/users/$userId/sessions'
     | '/users/$userId/support'
     | '/users/$userId/transactions'
@@ -737,6 +758,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/access-help'
+    | '/account-deletions'
     | '/adjustments'
     | '/ai-chat'
     | '/analytics'
@@ -759,6 +781,7 @@ export interface FileRouteTypes {
     | '/users'
     | '/verify'
     | '/withdrawals'
+    | '/account-deletions/$deletionId'
     | '/adjustments/$requestId'
     | '/adjustments/new'
     | '/ai-chat/$sessionId'
@@ -797,10 +820,10 @@ export interface FileRouteTypes {
     | '/reconciliation/records/$recordId'
     | '/users/$userId/audit'
     | '/users/$userId/balances'
-    | '/users/$userId/profile'
     | '/users/$userId/frozen'
     | '/users/$userId/investments'
     | '/users/$userId/kyc'
+    | '/users/$userId/profile'
     | '/users/$userId/sessions'
     | '/users/$userId/support'
     | '/users/$userId/transactions'
@@ -809,6 +832,7 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/access-help'
+    | '/account-deletions'
     | '/adjustments'
     | '/ai-chat'
     | '/analytics'
@@ -831,6 +855,7 @@ export interface FileRouteTypes {
     | '/users'
     | '/verify'
     | '/withdrawals'
+    | '/account-deletions_/$deletionId'
     | '/adjustments_/$requestId'
     | '/adjustments_/new'
     | '/ai-chat_/$sessionId'
@@ -870,10 +895,10 @@ export interface FileRouteTypes {
     | '/reconciliation_/records_/$recordId'
     | '/users_/$userId/audit'
     | '/users_/$userId/balances'
-    | '/users_/$userId/profile'
     | '/users_/$userId/frozen'
     | '/users_/$userId/investments'
     | '/users_/$userId/kyc'
+    | '/users_/$userId/profile'
     | '/users_/$userId/sessions'
     | '/users_/$userId/support'
     | '/users_/$userId/transactions'
@@ -883,6 +908,7 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AccessHelpRoute: typeof AccessHelpRoute
+  AccountDeletionsRoute: typeof AccountDeletionsRoute
   AdjustmentsRoute: typeof AdjustmentsRoute
   AiChatRoute: typeof AiChatRoute
   AnalyticsRoute: typeof AnalyticsRoute
@@ -905,6 +931,7 @@ export interface RootRouteChildren {
   UsersRoute: typeof UsersRoute
   VerifyRoute: typeof VerifyRoute
   WithdrawalsRoute: typeof WithdrawalsRoute
+  AccountDeletionsDeletionIdRoute: typeof AccountDeletionsDeletionIdRoute
   AdjustmentsRequestIdRoute: typeof AdjustmentsRequestIdRoute
   AdjustmentsNewRoute: typeof AdjustmentsNewRoute
   AiChatSessionIdRoute: typeof AiChatSessionIdRoute
@@ -958,6 +985,13 @@ declare module '@tanstack/react-router' {
       path: '/access-help'
       fullPath: '/access-help'
       preLoaderRoute: typeof AccessHelpRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/account-deletions': {
+      id: '/account-deletions'
+      path: '/account-deletions'
+      fullPath: '/account-deletions'
+      preLoaderRoute: typeof AccountDeletionsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/adjustments': {
@@ -1112,6 +1146,13 @@ declare module '@tanstack/react-router' {
       path: '/withdrawals'
       fullPath: '/withdrawals'
       preLoaderRoute: typeof WithdrawalsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/account-deletions_/$deletionId': {
+      id: '/account-deletions_/$deletionId'
+      path: '/account-deletions/$deletionId'
+      fullPath: '/account-deletions/$deletionId'
+      preLoaderRoute: typeof AccountDeletionsDeletionIdRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/adjustments_/$requestId': {
@@ -1394,13 +1435,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof UsersUserIdBalancesRouteImport
       parentRoute: typeof UsersUserIdRoute
     }
-    '/users_/$userId/profile': {
-      id: '/users_/$userId/profile'
-      path: '/profile'
-      fullPath: '/users/$userId/profile'
-      preLoaderRoute: typeof UsersUserIdProfileRouteImport
-      parentRoute: typeof UsersUserIdRoute
-    }
     '/users_/$userId/frozen': {
       id: '/users_/$userId/frozen'
       path: '/frozen'
@@ -1420,6 +1454,13 @@ declare module '@tanstack/react-router' {
       path: '/kyc'
       fullPath: '/users/$userId/kyc'
       preLoaderRoute: typeof UsersUserIdKycRouteImport
+      parentRoute: typeof UsersUserIdRoute
+    }
+    '/users_/$userId/profile': {
+      id: '/users_/$userId/profile'
+      path: '/profile'
+      fullPath: '/users/$userId/profile'
+      preLoaderRoute: typeof UsersUserIdProfileRouteImport
       parentRoute: typeof UsersUserIdRoute
     }
     '/users_/$userId/sessions': {
@@ -1449,10 +1490,10 @@ declare module '@tanstack/react-router' {
 interface UsersUserIdRouteChildren {
   UsersUserIdAuditRoute: typeof UsersUserIdAuditRoute
   UsersUserIdBalancesRoute: typeof UsersUserIdBalancesRoute
-  UsersUserIdProfileRoute: typeof UsersUserIdProfileRoute
   UsersUserIdFrozenRoute: typeof UsersUserIdFrozenRoute
   UsersUserIdInvestmentsRoute: typeof UsersUserIdInvestmentsRoute
   UsersUserIdKycRoute: typeof UsersUserIdKycRoute
+  UsersUserIdProfileRoute: typeof UsersUserIdProfileRoute
   UsersUserIdSessionsRoute: typeof UsersUserIdSessionsRoute
   UsersUserIdSupportRoute: typeof UsersUserIdSupportRoute
   UsersUserIdTransactionsRoute: typeof UsersUserIdTransactionsRoute
@@ -1462,10 +1503,10 @@ interface UsersUserIdRouteChildren {
 const UsersUserIdRouteChildren: UsersUserIdRouteChildren = {
   UsersUserIdAuditRoute: UsersUserIdAuditRoute,
   UsersUserIdBalancesRoute: UsersUserIdBalancesRoute,
-  UsersUserIdProfileRoute: UsersUserIdProfileRoute,
   UsersUserIdFrozenRoute: UsersUserIdFrozenRoute,
   UsersUserIdInvestmentsRoute: UsersUserIdInvestmentsRoute,
   UsersUserIdKycRoute: UsersUserIdKycRoute,
+  UsersUserIdProfileRoute: UsersUserIdProfileRoute,
   UsersUserIdSessionsRoute: UsersUserIdSessionsRoute,
   UsersUserIdSupportRoute: UsersUserIdSupportRoute,
   UsersUserIdTransactionsRoute: UsersUserIdTransactionsRoute,
@@ -1479,6 +1520,7 @@ const UsersUserIdRouteWithChildren = UsersUserIdRoute._addFileChildren(
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AccessHelpRoute: AccessHelpRoute,
+  AccountDeletionsRoute: AccountDeletionsRoute,
   AdjustmentsRoute: AdjustmentsRoute,
   AiChatRoute: AiChatRoute,
   AnalyticsRoute: AnalyticsRoute,
@@ -1501,6 +1543,7 @@ const rootRouteChildren: RootRouteChildren = {
   UsersRoute: UsersRoute,
   VerifyRoute: VerifyRoute,
   WithdrawalsRoute: WithdrawalsRoute,
+  AccountDeletionsDeletionIdRoute: AccountDeletionsDeletionIdRoute,
   AdjustmentsRequestIdRoute: AdjustmentsRequestIdRoute,
   AdjustmentsNewRoute: AdjustmentsNewRoute,
   AiChatSessionIdRoute: AiChatSessionIdRoute,
