@@ -394,8 +394,12 @@ export async function fetchAdminUser(userId: string) {
       addressCity: string | null;
       addressState: string | null;
       addressLga: string | null;
+      bvn?: string | null;
+      nin?: string | null;
       ninName: string | null;
       bvnName: string | null;
+      bvnProviderStatus?: string | null;
+      ninProviderStatus?: string | null;
       occupation: string | null;
       employmentStatus: string | null;
       sourceOfFunds: string | null;

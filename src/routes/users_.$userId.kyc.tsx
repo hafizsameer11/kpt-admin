@@ -43,10 +43,18 @@ function Kyc() {
   const superAdmin = isSuperAdminSession();
   const [user, setUser] = useState(findUser(userId));
   const [checks, setChecks] = useState<DocRow[]>([]);
-  const [docs, setDocs] = useState<{ selfieUrl: string | null; addressDocUrl: string | null; address: string }>({
+  const [docs, setDocs] = useState<{
+    selfieUrl: string | null;
+    addressDocUrl: string | null;
+    address: string;
+    bvn: string;
+    nin: string;
+  }>({
     selfieUrl: null,
     addressDocUrl: null,
     address: "—",
+    bvn: "—",
+    nin: "—",
   });
   const [activateTier, setActivateTier] = useState<"TIER_1" | "TIER_2">("TIER_1");
   const [bvn, setBvn] = useState("");
@@ -78,22 +86,32 @@ function Kyc() {
         selfieUrl: d?.selfieUrl ?? null,
         addressDocUrl: d?.addressDocUrl ?? null,
         address: address || "—",
+        bvn: d?.bvn?.trim() || "—",
+        nin: d?.nin?.trim() || "—",
       });
       const mapStatus = (s?: string | null): DocRow["state"] => {
         if (s === "SUCCESS") return "passed";
         if (s === "FAILED") return "failed";
         return "pending";
       };
+      const bvnNumber = d?.bvn?.trim() || "";
+      const ninNumber = d?.nin?.trim() || "";
+      const bvnName = d?.bvnName || kyc?.profile?.bvnName || "";
+      const ninName = d?.ninName || kyc?.profile?.ninName || "";
       setChecks([
         {
           label: "BVN",
-          value: kyc?.profile?.bvnName || kyc?.profile?.bvnProviderStatus || "—",
-          state: mapStatus(kyc?.profile?.bvnProviderStatus),
+          value: bvnNumber
+            ? `${bvnNumber}${bvnName ? ` · ${bvnName}` : ""}`
+            : bvnName || kyc?.profile?.bvnProviderStatus || "—",
+          state: mapStatus(d?.bvnProviderStatus || kyc?.profile?.bvnProviderStatus),
         },
         {
           label: "NIN",
-          value: kyc?.profile?.ninName || kyc?.profile?.ninProviderStatus || "—",
-          state: mapStatus(kyc?.profile?.ninProviderStatus),
+          value: ninNumber
+            ? `${ninNumber}${ninName ? ` · ${ninName}` : ""}`
+            : ninName || kyc?.profile?.ninProviderStatus || "—",
+          state: mapStatus(d?.ninProviderStatus || kyc?.profile?.ninProviderStatus),
         },
         {
           label: "Selfie on file",
@@ -103,14 +121,22 @@ function Kyc() {
         },
         {
           label: "Proof of address",
-          value: d?.addressDocUrl || kyc?.profile?.hasAddressDoc ? "Available for viewing" : "Not uploaded",
+          value:
+            d?.addressDocUrl || kyc?.profile?.hasAddressDoc
+              ? "Available for viewing"
+              : "Not uploaded",
           url: d?.addressDocUrl,
           state: d?.addressDocUrl || kyc?.profile?.hasAddressDoc ? "passed" : "pending",
         },
         {
           label: "KYC status",
           value: kyc?.status || "—",
-          state: kyc?.status === "APPROVED" ? "passed" : kyc?.status === "REJECTED" ? "failed" : "pending",
+          state:
+            kyc?.status === "APPROVED"
+              ? "passed"
+              : kyc?.status === "REJECTED"
+                ? "failed"
+                : "pending",
         },
       ]);
     } catch {
@@ -179,7 +205,9 @@ function Kyc() {
       <div className="grid gap-5 xl:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
         <Panel title="Verification checks">
           {checks.length === 0 ? (
-            <p className="py-6 text-[13px] text-muted-foreground">No check detail returned by the API.</p>
+            <p className="py-6 text-[13px] text-muted-foreground">
+              No check detail returned by the API.
+            </p>
           ) : (
             <ul className="divide-y divide-border/70">
               {checks.map((c) => {
@@ -215,6 +243,8 @@ function Kyc() {
           <ul className="divide-y divide-border/70 text-[13px]">
             {[
               ["Current tier", `Tier ${user.tier}`],
+              ["BVN", docs.bvn],
+              ["NIN", docs.nin],
               ["Residential address", docs.address],
               ["Account status", user.status],
             ].map(([k, v]) => (
@@ -312,7 +342,8 @@ function Kyc() {
                 />
               </label>
               <p className="text-[12px] text-muted-foreground">
-                Marks KYC approved, sets the tier, and unfreezes the account so the customer can use the app.
+                Marks KYC approved, sets the tier, and unfreezes the account so the customer can use
+                the app.
               </p>
               <button
                 type="button"
