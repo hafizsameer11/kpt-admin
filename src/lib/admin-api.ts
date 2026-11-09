@@ -545,6 +545,15 @@ export async function setAdminUserFrozen(userId: string, frozen: boolean, reason
   });
 }
 
+export async function resetAdminUserPassword(userId: string) {
+  return adminApi<{
+    id: string;
+    email: string;
+    emailed: boolean;
+    tempPassword: string;
+  }>(`/v1/admin/users/${userId}/reset-password`, { method: "POST" });
+}
+
 export async function fetchAdminKycQueue() {
   return adminApi<
     {
