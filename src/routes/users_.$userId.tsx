@@ -8,18 +8,20 @@ import {
   useRouterState,
 } from "@tanstack/react-router";
 import { useState } from "react";
-import { ArrowLeft, Lock, LockOpen, Mail, Phone, TicketCheck } from "lucide-react";
+import { ArrowLeft, KeyRound, Lock, LockOpen, Mail, Phone, TicketCheck } from "lucide-react";
 import { toast } from "sonner";
 
 import { AdminShell } from "@/components/kipit/AdminShell";
 import { StatusPill, TierPill } from "@/components/kipit/AdminBits";
 import { findUser, hydrateAdminUserFromApi, portfolioValue } from "@/lib/admin-users-data";
 import { naira } from "@/lib/admin-data";
-import { createAdminSupportTicket, setAdminUserFrozen } from "@/lib/admin-api";
 import {
-  CATEGORY_LABEL,
-  type TicketCategory,
-} from "@/lib/admin-support-data";
+  AdminApiError,
+  createAdminSupportTicket,
+  resetAdminUserPassword,
+  setAdminUserFrozen,
+} from "@/lib/admin-api";
+import { CATEGORY_LABEL, type TicketCategory } from "@/lib/admin-support-data";
 import {
   Dialog,
   DialogContent,
@@ -94,6 +96,13 @@ function AdminUserProfile() {
   const [ticketCategory, setTicketCategory] = useState<TicketCategory>("general");
   const [ticketSubject, setTicketSubject] = useState("");
   const [ticketBody, setTicketBody] = useState("");
+  const [resetOpen, setResetOpen] = useState(false);
+  const [resetBusy, setResetBusy] = useState(false);
+  const [resetResult, setResetResult] = useState<{
+    email: string;
+    emailed: boolean;
+    tempPassword: string;
+  } | null>(null);
 
   if (!user) {
     return (
@@ -165,7 +174,7 @@ function AdminUserProfile() {
                   {naira(portfolioValue(user))}
                 </p>
               </div>
-              <div className="flex gap-2">
+              <div className="flex flex-wrap gap-2">
                 <button
                   type="button"
                   onClick={() => setTicketOpen(true)}
@@ -173,6 +182,17 @@ function AdminUserProfile() {
                 >
                   <TicketCheck className="size-4" />
                   New ticket
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setResetResult(null);
+                    setResetOpen(true);
+                  }}
+                  className="inline-flex items-center gap-1.5 rounded-lg bg-white/10 px-3 py-2 text-[12.5px] font-bold text-primary-foreground transition hover:bg-white/20"
+                >
+                  <KeyRound className="size-4" />
+                  Reset password
                 </button>
                 <button
                   type="button"
@@ -289,9 +309,7 @@ function AdminUserProfile() {
             <button
               type="button"
               disabled={
-                ticketBusy ||
-                ticketSubject.trim().length < 3 ||
-                ticketBody.trim().length < 4
+                ticketBusy || ticketSubject.trim().length < 3 || ticketBody.trim().length < 4
               }
               onClick={() => {
                 if (ticketBusy) return;
@@ -324,6 +342,97 @@ function AdminUserProfile() {
             >
               {ticketBusy ? "Creating…" : "Create ticket"}
             </button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Reset customer password */}
+      <Dialog
+        open={resetOpen}
+        onOpenChange={(open) => {
+          setResetOpen(open);
+          if (!open) setResetResult(null);
+        }}
+      >
+        <DialogContent className="sm:max-w-[28rem]">
+          <DialogHeader>
+            <DialogTitle>Reset customer password</DialogTitle>
+            <DialogDescription>
+              {resetResult
+                ? "A new temporary password was generated. Share it only if the email did not arrive."
+                : `Generate a temporary password and email it to ${user.email || "this customer"}. They should sign in and change it.`}
+            </DialogDescription>
+          </DialogHeader>
+
+          {resetResult ? (
+            <div className="space-y-3 rounded-xl border border-border bg-muted/40 p-3 text-[13px]">
+              <p>
+                <span className="text-muted-foreground">Email: </span>
+                <span className="font-bold">{resetResult.email}</span>
+              </p>
+              <p>
+                <span className="text-muted-foreground">Delivery: </span>
+                <span className="font-bold">
+                  {resetResult.emailed ? "Sent" : "Failed — copy password below"}
+                </span>
+              </p>
+              <p className="break-all rounded-lg bg-background px-3 py-2 font-mono text-[12.5px] font-bold">
+                {resetResult.tempPassword}
+              </p>
+              <button
+                type="button"
+                className="text-[12.5px] font-bold text-brand hover:underline"
+                onClick={() => {
+                  void navigator.clipboard.writeText(resetResult.tempPassword);
+                  toast.success("Temporary password copied");
+                }}
+              >
+                Copy temporary password
+              </button>
+            </div>
+          ) : null}
+
+          <div className="flex justify-end gap-2">
+            <button
+              type="button"
+              disabled={resetBusy}
+              onClick={() => setResetOpen(false)}
+              className="rounded-lg border border-border px-4 py-2 text-[13px] font-bold transition hover:bg-muted disabled:opacity-50"
+            >
+              {resetResult ? "Done" : "Cancel"}
+            </button>
+            {!resetResult ? (
+              <button
+                type="button"
+                disabled={resetBusy || !user.email}
+                onClick={() => {
+                  if (resetBusy) return;
+                  setResetBusy(true);
+                  void resetAdminUserPassword(user.id)
+                    .then((data) => {
+                      setResetResult({
+                        email: data.email,
+                        emailed: data.emailed,
+                        tempPassword: data.tempPassword,
+                      });
+                      toast.success(
+                        data.emailed
+                          ? "Temporary password emailed"
+                          : "Password reset — email may have failed",
+                      );
+                    })
+                    .catch((err) =>
+                      toast.error(
+                        err instanceof AdminApiError ? err.message : "Could not reset password",
+                      ),
+                    )
+                    .finally(() => setResetBusy(false));
+                }}
+                className="rounded-lg bg-brand px-4 py-2 text-[13px] font-bold text-primary-foreground transition disabled:opacity-40"
+              >
+                {resetBusy ? "Resetting…" : "Reset & email password"}
+              </button>
+            ) : null}
           </div>
         </DialogContent>
       </Dialog>
@@ -365,18 +474,12 @@ function AdminUserProfile() {
             </button>
             <button
               type="button"
-              disabled={
-                freezeBusy || (freezeRequiresReason && reason.trim().length < 4)
-              }
+              disabled={freezeBusy || (freezeRequiresReason && reason.trim().length < 4)}
               onClick={() => {
                 if (freezeBusy) return;
                 const freeze = !isFrozen;
                 setFreezeBusy(true);
-                void setAdminUserFrozen(
-                  user.id,
-                  freeze,
-                  reason.trim() || undefined,
-                )
+                void setAdminUserFrozen(user.id, freeze, reason.trim() || undefined)
                   .then(async () => {
                     await hydrateAdminUserFromApi(user.id);
                     setFreezeOpen(false);
