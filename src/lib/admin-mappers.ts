@@ -356,42 +356,30 @@ function rateBandTenorLabel(code: string, minDays: number, maxDays: number | nul
   return `${minDays} – ${maxDays} days`;
 }
 
-const BAND_PRODUCT_NAMES: Record<string, string> = {
-  CALL: "Kipit Call Account",
-  "1-90": "Kipit Starter",
-  "91-120": "Kipit Fixed Income",
-  "121-180": "Kipit Target Savings",
-  "181-364": "Kipit Growth",
-  "365+": "Kipit Vault",
-};
-
-function rateBandProductLabel(code: string, fallback = "Kipit Fixed"): string {
-  const key = code.trim();
-  return (
-    BAND_PRODUCT_NAMES[key] ??
-    BAND_PRODUCT_NAMES[key.toUpperCase()] ??
-    (key.toUpperCase() === "CALL" ? "Kipit Call Account" : fallback)
-  );
+function rateBandProductLabel(
+  code: string,
+  family?: string | null,
+  payout?: string | null,
+  fallback = "Kipit Lock",
+): string {
+  const key = code.trim().toUpperCase();
+  if (family === "CALL" || key === "CALL") return "Kipit Call Account";
+  if (family === "FLEX" || key.startsWith("FLEX_")) return "Kipit Flex";
+  if (family === "LOCK" || key.startsWith("LOCK_")) {
+    return payout === "UPFRONT" || key.startsWith("LOCK_UP_")
+      ? "Kipit Lock (upfront)"
+      : "Kipit Lock (at maturity)";
+  }
+  // Legacy day-range bands display as Lock (B4/B8).
+  return fallback;
 }
 
-/** Naira minimums by band code — same table as GET /v1/invest/rates. */
-const BAND_MINIMUM_NAIRA: Record<string, number> = {
-  CALL: 5_000,
-  "1-90": 10_000,
-  "91-120": 50_000,
-  "121-180": 50_000,
-  "181-364": 100_000,
-  "365+": 250_000,
-};
+function minimumForRateBand(_code: string, _minDays: number): number {
+  return 1_000;
+}
 
-function minimumForRateBand(code: string, minDays: number): number {
-  const keyed = BAND_MINIMUM_NAIRA[code] ?? BAND_MINIMUM_NAIRA[code.toUpperCase()];
-  if (keyed != null) return keyed;
-  if (minDays <= 0) return 5_000;
-  if (minDays <= 90) return 10_000;
-  if (minDays <= 180) return 50_000;
-  if (minDays <= 364) return 100_000;
-  return 250_000;
+function grossPct(netPct: number) {
+  return netPct / 0.9;
 }
 
 export function mapRateBand(
@@ -400,11 +388,17 @@ export function mapRateBand(
     principal?: number;
   },
 ): RateBand {
-  const liveRate = row.rateBps / 10000;
+  const liveRate = row.ratePct ?? row.rateBps / 10000;
   const previous =
     row.previousBps != null ? row.previousBps / 10000 : liveRate;
   const maxDays = row.maxDays ?? row.minDays;
-  const band = rateBandTenorLabel(row.code, row.minDays, row.maxDays);
+  const tenorDays = row.standardTenorDays ?? (row.minDays > 0 ? row.minDays : null);
+  const band =
+    row.family === "CALL" || row.code.toUpperCase() === "CALL"
+      ? "Call — withdraw anytime"
+      : tenorDays
+        ? `${tenorDays} days${row.payout === "UPFRONT" ? " · upfront" : row.payout === "AT_MATURITY" ? " · at maturity" : ""}`
+        : rateBandTenorLabel(row.code, row.minDays, row.maxDays);
   const status: RateStatus =
     row.status === "pending" || row.pendingBps != null
       ? "pending"
@@ -423,6 +417,16 @@ export function mapRateBand(
         : liveRate;
   const previousRate =
     status === "pending" || status === "scheduled" ? liveRate : previous;
+  const family =
+    row.family === "CALL" || row.family === "LOCK" || row.family === "FLEX"
+      ? row.family
+      : row.code.toUpperCase() === "CALL"
+        ? ("CALL" as const)
+        : row.code.toUpperCase().startsWith("LOCK")
+          ? ("LOCK" as const)
+          : row.code.toUpperCase().startsWith("FLEX")
+            ? ("FLEX" as const)
+            : ("LEGACY" as const);
   const history =
     row.pendingBps != null && row.pendingFrom
       ? [
@@ -445,12 +449,21 @@ export function mapRateBand(
         : [];
   return {
     id: row.id,
+    code: row.code,
     band,
-    product: rateBandProductLabel(row.code),
+    product: rateBandProductLabel(row.code, row.family, row.payout),
+    family,
+    payout: row.payout === "UPFRONT" || row.payout === "AT_MATURITY" ? row.payout : null,
+    standardTenorDays: tenorDays,
     minDays: row.minDays,
     maxDays: maxDays,
     currentRate,
+    currentGrossRate: row.grossRatePct ?? grossPct(currentRate),
+    rateLabel:
+      row.rateLabel ??
+      `${currentRate.toFixed(2)}% net (${(row.grossRatePct ?? grossPct(currentRate)).toFixed(2)}% gross)`,
     previousRate,
+    previousGrossRate: grossPct(previousRate),
     effectiveDate:
       status === "pending" && row.pendingFrom
         ? row.pendingFrom
@@ -501,9 +514,13 @@ export function mapRateRequest(
     id: row.id,
     bandId: row.bandId,
     band: row.band,
-    product: rateBandProductLabel(row.code ?? "", "Kipit Fixed"),
+    product: rateBandProductLabel(row.code ?? "", row.family, row.payout),
+    family: row.family,
+    payout: row.payout,
     currentRate,
+    currentGrossRate: row.currentGrossRate ?? grossPct(currentRate),
     proposedRate,
+    proposedGrossRate: row.proposedGrossRate ?? grossPct(proposedRate),
     effectiveDate: effectiveRaw.slice(0, 10),
     submittedBy: row.submittedBy,
     submittedAt: formatAdminDateTime(row.createdAt),

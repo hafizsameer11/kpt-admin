@@ -62,10 +62,26 @@ export const ADMIN_STATUS_TONE: Record<AdminStatus, string> = {
 
 export const PERMISSION_GROUPS: PermissionGroup[] = [
   {
+    id: "overview",
+    label: "Overview",
+    permissions: [
+      {
+        id: "dashboard.view",
+        label: "Executive dashboard",
+        description: "Funds under management, maturity tracker and ops alerts",
+      },
+    ],
+  },
+  {
     id: "users",
     label: "Users & accounts",
     permissions: [
       { id: "users.view", label: "View users", description: "Open customer profiles and balances" },
+      {
+        id: "users.profile",
+        label: "Edit customer profiles",
+        description: "Adjust identity and contact fields (dual approval for Operations)",
+      },
       { id: "users.freeze", label: "Freeze / unfreeze", description: "Restrict account activity" },
       { id: "users.sessions", label: "Revoke sessions", description: "Sign a customer out of devices" },
     ],
@@ -84,6 +100,11 @@ export const PERMISSION_GROUPS: PermissionGroup[] = [
     id: "money",
     label: "Money movement",
     permissions: [
+      {
+        id: "placement.view",
+        label: "View placements",
+        description: "Global placements list and per-customer holdings",
+      },
       { id: "txn.view", label: "View transactions", description: "Search the full ledger" },
       { id: "withdrawal.process", label: "Process withdrawals", description: "Release payouts to banks" },
       { id: "withdrawal.decline", label: "Decline withdrawals", description: "Reject with a reason" },
@@ -144,17 +165,22 @@ export const ADMIN_ROLES: AdminRole[] = [
   {
     id: "operations",
     name: "Operations",
-    summary: "Day-to-day money movement: withdrawals, reconciliation and adjustments.",
+    summary:
+      "Executive dashboard, customer profiles, placements, withdrawals, products and reconciliation.",
     members: 3,
     system: false,
     grants: [
+      "dashboard.view",
       "users.view",
+      "users.profile",
       "users.freeze",
+      "placement.view",
       "txn.view",
       "withdrawal.process",
       "withdrawal.decline",
       "recon.resolve",
       "adjustment.request",
+      "product.manage",
       "audit.view",
     ],
   },
@@ -205,7 +231,7 @@ export const ADMIN_ROLES: AdminRole[] = [
     summary: "View dashboards and records without any action rights.",
     members: 1,
     system: true,
-    grants: ["users.view", "txn.view", "audit.view"],
+    grants: ["dashboard.view", "users.view", "txn.view", "audit.view"],
   },
 ];
 

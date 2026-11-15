@@ -224,8 +224,24 @@ export async function hydrateAdminDashboardFromApi() {
         window: m.window,
       };
       if (m.maturityDate) row.maturityDate = m.maturityDate;
+      if (m.planType != null) row.planType = m.planType;
+      if (m.interestPayout != null) row.interestPayout = m.interestPayout;
+      if (m.expectedGross != null) row.expectedGross = m.expectedGross;
+      if (m.expectedWht != null) row.expectedWht = m.expectedWht;
+      if (m.expectedNet != null) row.expectedNet = m.expectedNet;
       return row;
     });
+    DASHBOARD_TAX = dash.tax ?? null;
+    DASHBOARD_PLAN_SPLIT = dash.breakdown
+      ? {
+          lock: dash.breakdown.lock ?? 0,
+          flex: dash.breakdown.flex ?? 0,
+          lockUpfront: dash.breakdown.lockUpfront ?? 0,
+          lockAtMaturity: dash.breakdown.lockAtMaturity ?? 0,
+          valueAtMaturity: dash.breakdown.valueAtMaturity ?? 0,
+        }
+      : null;
+    PENDING_FLEX_BREAKS = dash.pendingFlexBreaks ?? [];
     RECENT_ACTIVITY = activity;
     TODAY_FLOWS.deposits = flows.deposits;
     TODAY_FLOWS.placements = flows.placements;
@@ -278,9 +294,49 @@ export type MaturityRow = {
   date: string;
   window: "week" | "month";
   maturityDate?: string;
+  planType?: string | null;
+  interestPayout?: string | null;
+  expectedGross?: number | null;
+  expectedWht?: number | null;
+  expectedNet?: number | null;
 };
 
 export let MATURITIES: MaturityRow[] = [];
+
+/** C7 — Lock/Flex + tax + pending Flex breaks from dashboard. */
+export let DASHBOARD_TAX: {
+  accruedGross: number;
+  accruedWht: number;
+  accruedNet: number;
+  expectedGross: number;
+  expectedWht: number;
+  expectedNet: number;
+  byCategory: {
+    category: string;
+    principal: number;
+    accruedGross: number;
+    accruedWht: number;
+    accruedNet: number;
+  }[];
+} | null = null;
+
+export let DASHBOARD_PLAN_SPLIT: {
+  lock: number;
+  flex: number;
+  lockUpfront: number;
+  lockAtMaturity: number;
+  valueAtMaturity: number;
+} | null = null;
+
+export let PENDING_FLEX_BREAKS: {
+  id: string;
+  userId: string;
+  user: string;
+  email: string | null;
+  principal: number;
+  breakRequestedAt: string | null;
+  breakCreditAt: string | null;
+}[] = [];
 
 /* ── ADM-013 operational alerts ──────────────────────────────────────── */
 

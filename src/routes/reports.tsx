@@ -14,6 +14,7 @@ import {
   type ScheduledReport,
 } from "@/lib/admin-console-data";
 import { AdminApiError, putAdminReportSchedules, runAdminReport } from "@/lib/admin-api";
+import { formatReportDate, formatReportDateTime } from "@/lib/report-dates";
 import {
   Dialog,
   DialogContent,
@@ -113,12 +114,7 @@ function ReportsCentre() {
           name: e.name,
           by: "System",
           size: rowCount != null ? `${rowCount.toLocaleString("en-NG")} rows` : fmt || "—",
-          when: new Date(e.at).toLocaleString("en-NG", {
-            day: "2-digit",
-            month: "short",
-            hour: "2-digit",
-            minute: "2-digit",
-          }),
+          when: formatReportDateTime(e.at),
           status: e.status === "SUCCESS" ? "Ready" : e.status,
         };
       }),
@@ -421,7 +417,9 @@ function ReportsCentre() {
                   <p className="text-[12.5px] text-muted-foreground">
                     {s.cadence} · {s.recipients}
                   </p>
-                  <p className="text-[11.5px] text-muted-foreground">Next run {s.next}</p>
+                  <p className="text-[11.5px] text-muted-foreground">
+                    Next run {formatReportDate(s.next)}
+                  </p>
                 </div>
                 <button
                   type="button"
@@ -491,7 +489,7 @@ function ReportsCentre() {
           <DialogHeader>
             <DialogTitle>Generate {run?.name}</DialogTitle>
             <DialogDescription>
-              Period {from} to {to}. CSV downloads from the packs below.
+              Period {formatReportDate(from)} to {formatReportDate(to)}. Dates in exports use DD/MM/YYYY.
             </DialogDescription>
           </DialogHeader>
           <div className="flex flex-wrap gap-2">

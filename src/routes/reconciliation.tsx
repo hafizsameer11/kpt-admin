@@ -4,6 +4,7 @@ import {
   AlertTriangle,
   ArrowRight,
   CheckCircle2,
+  CircleHelp,
   Database,
   RefreshCw,
   Scale,
@@ -30,8 +31,9 @@ import {
   RECON_TREND,
   hydrateAdminReconFromApi,
   type ReconRecord,
-  computeReconTotals,
+  type ReconSummary,
 } from "@/lib/admin-recon-data";
+import { formatReportDate } from "@/lib/report-dates";
 
 export const Route = createFileRoute("/reconciliation")({
   head: () => ({
@@ -57,16 +59,32 @@ export const Route = createFileRoute("/reconciliation")({
 
 function ReconDashboard() {
   const [records, setRecords] = useState<ReconRecord[]>([]);
-  const [, setTick] = useState(0);
+  const [summary, setSummary] = useState<ReconSummary | null>(null);
+  const [helpOpen, setHelpOpen] = useState(false);
+  const [helpCopy, setHelpCopy] = useState<{
+    matching: string;
+    syncFrequency: string;
+    unmatched: string;
+    futureSources: string;
+  } | null>(null);
 
   useEffect(() => {
-    void hydrateAdminReconFromApi().then((rows) => {
-      setRecords(rows);
-      setTick((t) => t + 1);
+    void hydrateAdminReconFromApi().then((payload) => {
+      setRecords(payload.records);
+      setSummary(payload.summary);
+      setHelpCopy(payload.help);
     });
   }, []);
 
-  const totals = computeReconTotals();
+  const totals = summary ?? {
+    matched: 0,
+    unmatched: 0,
+    variance: 0,
+    investigating: 0,
+    resolved: 0,
+    total: 0,
+    varianceValue: 0,
+  };
   const exceptions = records.filter(
     (r) => r.status === "unmatched" || r.status === "variance" || r.status === "investigating",
   );
@@ -74,6 +92,43 @@ function ReconDashboard() {
 
   return (
     <AdminShell title="Reconciliation" subtitle="ADM-090 · provider records vs internal ledger">
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+        <p className="text-[12.5px] text-muted-foreground">
+          Paystack, Flutterwave, NIBSS and card feeds today — Rubipay + Rand Merchant Bank after C1.
+        </p>
+        <button
+          type="button"
+          onClick={() => setHelpOpen((o) => !o)}
+          className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-2 text-[12.5px] font-bold transition hover:bg-muted"
+        >
+          <CircleHelp className="size-4" />
+          How matching works
+        </button>
+      </div>
+
+      {helpOpen && helpCopy ? (
+        <Panel className="mb-5" title="Reconciliation model" eyebrow="Help" icon={CircleHelp}>
+          <ul className="space-y-2 text-[13px] text-muted-foreground">
+            <li>
+              <span className="font-bold text-foreground">Matching — </span>
+              {helpCopy.matching}
+            </li>
+            <li>
+              <span className="font-bold text-foreground">Sync — </span>
+              {helpCopy.syncFrequency}
+            </li>
+            <li>
+              <span className="font-bold text-foreground">Unmatched — </span>
+              {helpCopy.unmatched}
+            </li>
+            <li>
+              <span className="font-bold text-foreground">Custody — </span>
+              {helpCopy.futureSources}
+            </li>
+          </ul>
+        </Panel>
+      ) : null}
+
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <Stat
           label="Matched"
@@ -91,7 +146,7 @@ function ReconDashboard() {
         <Stat
           label="Variance value"
           value={naira(totals.varianceValue)}
-          helper={`${totals.variance} records with a difference`}
+          helper={`${totals.variance} variance · ${totals.unmatched} unmatched`}
           tone="gold"
           icon={Scale}
         />
@@ -132,7 +187,8 @@ function ReconDashboard() {
                 <div className="min-w-0">
                   <p className="truncate text-[13.5px] font-bold">{s.name}</p>
                   <p className="text-[12px] text-muted-foreground">
-                    {s.records.toLocaleString("en-NG")} records · synced {s.lastSync}
+                    {s.records.toLocaleString("en-NG")} exception{s.records === 1 ? "" : "s"} · synced{" "}
+                    {s.lastSync.length > 8 ? formatReportDate(s.lastSync) : s.lastSync}
                   </p>
                 </div>
                 <span className="text-[13px] font-extrabold tabular-nums">{compactNaira(s.value)}</span>
@@ -143,11 +199,12 @@ function ReconDashboard() {
             type="button"
             onClick={() => {
               void hydrateAdminReconFromApi()
-                .then((rows) => {
-                  setRecords(rows);
-                  setTick((t) => t + 1);
+                .then((payload) => {
+                  setRecords(payload.records);
+                  setSummary(payload.summary);
+                  setHelpCopy(payload.help);
                   toast.success("Reconciliation refreshed", {
-                    description: `${rows.length} record${rows.length === 1 ? "" : "s"} from latest wallet scan.`,
+                    description: `${payload.summary.matched.toLocaleString("en-NG")} matched · ${payload.records.length} exception row${payload.records.length === 1 ? "" : "s"}.`,
                   });
                 })
                 .catch(() =>
@@ -192,7 +249,7 @@ function ReconDashboard() {
                     {r.customer} · {r.channel}
                   </p>
                   <p className="truncate text-[12px] text-muted-foreground">
-                    {r.providerRef} vs {r.internalRef} · {r.source} · {r.date}
+                    {r.providerRef} vs {r.internalRef} · {r.source} · {formatReportDate(r.date)}
                   </p>
                 </div>
                 <span className="text-right text-[13px] font-extrabold tabular-nums">

@@ -91,6 +91,11 @@ function RolesPage() {
 
   return (
     <AdminShell title="Roles & permissions" subtitle="ADM-122 · what each role can do">
+      <div className="mb-5 rounded-2xl border border-gold/40 bg-gold/10 px-4 py-3 text-[12.5px] leading-relaxed text-gold-foreground">
+        <strong>C8 — Operations:</strong> Ops can view the executive dashboard, placements, transactions,
+        withdrawals, and manage products/profiles. Profile and product changes should use a second approver
+        (maker-checker / dual confirm) where the console prompts for an approver PIN — every mutation is audited.
+      </div>
       <Link
         to="/team"
         className="mb-4 inline-flex items-center gap-1.5 text-[13px] font-bold text-muted-foreground transition hover:text-foreground"

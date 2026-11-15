@@ -63,7 +63,7 @@ function CreateProductPage() {
   const [step, setStep] = useState(1);
 
   const [name, setName] = useState("");
-  const [category, setCategory] = useState<string>("Fixed Income");
+  const [category, setCategory] = useState<string>("Treasury Bills");
   const [issuer, setIssuer] = useState("");
   const [description, setDescription] = useState("");
   const [about, setAbout] = useState("");
@@ -71,8 +71,18 @@ function CreateProductPage() {
   const [risksText, setRisksText] = useState("");
   const [faqsText, setFaqsText] = useState("");
   const [rate, setRate] = useState("");
+  /** C4 — enter gross; WHT% editable (default 10, 0 = exempt); net = gross × (1 − wht/100). */
+  const [grossRate, setGrossRate] = useState("");
+  const [whtPct, setWhtPct] = useState("10");
   const [tenor, setTenor] = useState("");
   const [minimum, setMinimum] = useState("");
+  const netFromGross = (() => {
+    const g = Number(grossRate);
+    const w = Number(whtPct);
+    if (!Number.isFinite(g) || g <= 0) return Number(rate) || 0;
+    if (!Number.isFinite(w) || w < 0) return g;
+    return g * (1 - w / 100);
+  })();
 
   const [docs, setDocs] = useState<ProductDoc[]>([]);
   const [uploadOpen, setUploadOpen] = useState(false);
@@ -143,7 +153,9 @@ function CreateProductPage() {
         categoryName: category,
         description: description.trim() || undefined,
         blurb: (description.trim() || name.trim()).slice(0, 140),
-        ratePct: Number(rate) > 0 ? Number(rate) : 1,
+        ratePct: netFromGross > 0 ? netFromGross : Number(rate) > 0 ? Number(rate) : 1,
+        ...(Number(grossRate) > 0 ? { grossRatePct: Number(grossRate) } : {}),
+        whtRatePct: Number(whtPct) >= 0 ? Number(whtPct) : 10,
         tenorDays: Number(digits(tenor)) > 0 ? Number(digits(tenor)) : 30,
         minimum: Number(digits(minimum)) > 0 ? Number(digits(minimum)) : 1000,
         issuer: issuer.trim() || undefined,
@@ -393,12 +405,47 @@ function CreateProductPage() {
                 className="w-full resize-none rounded-lg border border-border bg-background px-3 py-2.5 text-[13.5px] outline-none focus:border-brand"
               />
             </Field>
-            <Field label="Rate (% per annum)">
+            <Field label="Gross rate (% p.a.)">
+              <input
+                value={grossRate}
+                onChange={(e) => {
+                  const v = e.target.value.replace(/[^\d.]/g, "");
+                  setGrossRate(v);
+                  const g = Number(v);
+                  const w = Number(whtPct);
+                  if (Number.isFinite(g) && g > 0) {
+                    const net = g * (1 - (Number.isFinite(w) ? w : 10) / 100);
+                    setRate(net.toFixed(4));
+                  }
+                }}
+                inputMode="decimal"
+                placeholder="20.00"
+                className="w-full rounded-lg border border-border bg-background px-3 py-2.5 text-[13.5px] tabular-nums outline-none focus:border-brand"
+              />
+            </Field>
+            <Field label="WHT %" helper="Default 10. Set 0 if exempt.">
+              <input
+                value={whtPct}
+                onChange={(e) => {
+                  const v = e.target.value.replace(/[^\d.]/g, "");
+                  setWhtPct(v);
+                  const g = Number(grossRate);
+                  const w = Number(v);
+                  if (Number.isFinite(g) && g > 0) {
+                    setRate((g * (1 - (Number.isFinite(w) ? w : 0) / 100)).toFixed(4));
+                  }
+                }}
+                inputMode="decimal"
+                placeholder="10"
+                className="w-full rounded-lg border border-border bg-background px-3 py-2.5 text-[13.5px] tabular-nums outline-none focus:border-brand"
+              />
+            </Field>
+            <Field label="Net rate (stored)" helper={`Computed ${netFromGross ? netFromGross.toFixed(2) : "—"}%`}>
               <input
                 value={rate}
                 onChange={(e) => setRate(e.target.value.replace(/[^\d.]/g, ""))}
                 inputMode="decimal"
-                placeholder="18.25"
+                placeholder="18.00"
                 className="w-full rounded-lg border border-border bg-background px-3 py-2.5 text-[13.5px] tabular-nums outline-none focus:border-brand"
               />
             </Field>
@@ -709,7 +756,9 @@ function CreateProductPage() {
                       categoryName: category,
                       description: description.trim(),
                       blurb: description.trim().slice(0, 140) || name.trim(),
-                      ratePct: Number(rate),
+                      ratePct: netFromGross > 0 ? netFromGross : Number(rate),
+                      ...(Number(grossRate) > 0 ? { grossRatePct: Number(grossRate) } : {}),
+                      whtRatePct: Number(whtPct) >= 0 ? Number(whtPct) : 10,
                       tenorDays: Number(digits(tenor)),
                       minimum: Number(digits(minimum)),
                       issuer: issuer.trim() || undefined,

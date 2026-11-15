@@ -6,9 +6,12 @@
 export type ProductStatus = "live" | "draft" | "closed" | "review";
 
 export type ProductCategory =
+  | "Treasury Bills"
+  | "Commercial Papers"
+  | "Mutual Funds"
+  | "Bonds"
   | "Call Account"
   | "Fixed Income"
-  | "Treasury Bills"
   | "Commercial Paper"
   | "Corporate Bond"
   | "Mutual Fund";
@@ -68,13 +71,12 @@ export const PRODUCT_STATUS_TONE: Record<ProductStatus, string> = {
   closed: "bg-destructive/10 text-destructive ring-destructive/20",
 };
 
+/** B17 Explore categories (primary). Legacy labels kept for older rows. */
 export const PRODUCT_CATEGORIES: ProductCategory[] = [
-  "Call Account",
-  "Fixed Income",
   "Treasury Bills",
-  "Commercial Paper",
-  "Corporate Bond",
-  "Mutual Fund",
+  "Commercial Papers",
+  "Mutual Funds",
+  "Bonds",
 ];
 
 export const DOC_KINDS: ProductDoc["kind"][] = [

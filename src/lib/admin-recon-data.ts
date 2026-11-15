@@ -78,6 +78,33 @@ export function computeReconTotals() {
 
 export let RECON_TOTALS = computeReconTotals();
 
+export type ReconSummary = {
+  matched: number;
+  unmatched: number;
+  variance: number;
+  investigating: number;
+  resolved: number;
+  total: number;
+  varianceValue: number;
+};
+
+export let RECON_SUMMARY: ReconSummary = {
+  matched: 0,
+  unmatched: 0,
+  variance: 0,
+  investigating: 0,
+  resolved: 0,
+  total: 0,
+  varianceValue: 0,
+};
+
+export let RECON_HELP: {
+  matching: string;
+  syncFrequency: string;
+  unmatched: string;
+  futureSources: string;
+} | null = null;
+
 export function findReconRecord(id: string) {
   return RECON_RECORDS.find((r) => r.id === id);
 }
@@ -116,23 +143,48 @@ function mapChannel(raw: string): ReconRecord["channel"] {
   return "Deposit";
 }
 
-function refreshReconAggregates() {
-  const sources: ReconSource[] = ["Paystack", "Flutterwave", "NIBSS transfer", "Card acquirer"];
-  RECON_SOURCES = sources.map((name) => {
-    const rows = RECON_RECORDS.filter((r) => r.source === name);
-    const latest = rows
-      .map((r) => r.date)
-      .sort()
-      .at(-1);
-    return {
-      name,
-      records: rows.length,
-      value: rows.reduce((s, r) => s + Math.abs(r.providerAmount - r.ledgerAmount), 0),
-      lastSync: latest
-        ? new Date(latest).toLocaleDateString("en-NG", { day: "2-digit", month: "short" })
-        : "—",
+function refreshReconAggregates(summary?: ReconSummary) {
+  if (summary) {
+    RECON_SUMMARY = summary;
+    RECON_TOTALS = {
+      ...summary,
+      providerValue: RECON_SOURCES.reduce((s, r) => s + r.value, 0),
     };
-  });
+  } else {
+    RECON_TOTALS = computeReconTotals();
+    RECON_SUMMARY = {
+      matched: RECON_TOTALS.matched,
+      unmatched: RECON_TOTALS.unmatched,
+      variance: RECON_TOTALS.variance,
+      investigating: RECON_TOTALS.investigating,
+      resolved: RECON_TOTALS.resolved,
+      total: RECON_TOTALS.total,
+      varianceValue: RECON_TOTALS.varianceValue,
+    };
+  }
+
+  const sources: ReconSource[] = ["Paystack", "Flutterwave", "NIBSS transfer", "Card acquirer"];
+  if (RECON_SOURCES.every((s) => s.records === 0)) {
+    RECON_SOURCES = sources.map((name) => {
+      const rows = RECON_RECORDS.filter((r) => r.source === name);
+      const latest = rows
+        .map((r) => r.date)
+        .sort()
+        .at(-1);
+      return {
+        name,
+        records: rows.length,
+        value: rows.reduce((s, r) => s + Math.abs(r.providerAmount - r.ledgerAmount), 0),
+        lastSync: latest
+          ? new Date(latest).toLocaleDateString("en-GB", {
+              day: "2-digit",
+              month: "2-digit",
+              year: "numeric",
+            })
+          : "—",
+      };
+    });
+  }
 
   const days: string[] = [];
   for (let i = 6; i >= 0; i -= 1) {
@@ -144,19 +196,18 @@ function refreshReconAggregates() {
     const dayRows = RECON_RECORDS.filter((r) => r.date === iso);
     const label = new Date(`${iso}T00:00:00Z`).toLocaleDateString("en-GB", {
       day: "2-digit",
-      month: "short",
+      month: "2-digit",
+      year: "numeric",
       timeZone: "UTC",
     });
     return {
       day: label,
-      matched: dayRows.filter((r) => r.status === "matched" || r.status === "resolved").length,
+      matched: dayRows.filter((r) => r.status === "resolved").length,
       exceptions: dayRows.filter(
         (r) => r.status === "unmatched" || r.status === "variance" || r.status === "investigating",
       ).length,
     };
   });
-
-  RECON_TOTALS = computeReconTotals();
 }
 
 export async function hydrateAdminReconFromApi() {
@@ -164,11 +215,12 @@ export async function hydrateAdminReconFromApi() {
     const { getAdminAccessToken, fetchAdminRecon } = await import("./admin-api");
     if (!getAdminAccessToken()) {
       RECON_RECORDS = [];
+      RECON_HELP = null;
       refreshReconAggregates();
-      return [];
+      return { records: [] as ReconRecord[], summary: RECON_SUMMARY, help: null };
     }
-    const rows = await fetchAdminRecon();
-    RECON_RECORDS = rows.map((r) => ({
+    const payload = await fetchAdminRecon();
+    RECON_RECORDS = payload.records.map((r) => ({
       id: r.id,
       providerRef: r.providerRef,
       internalRef: r.internalRef,
@@ -183,11 +235,19 @@ export async function hydrateAdminReconFromApi() {
       ...(r.note ? { note: r.note } : {}),
       ...(r.owner ? { owner: r.owner } : {}),
     }));
-    refreshReconAggregates();
-    return RECON_RECORDS;
+    RECON_SOURCES = payload.sources.map((s) => ({
+      name: mapSource(s.name),
+      records: s.records,
+      value: s.value,
+      lastSync: s.lastSync,
+    }));
+    RECON_HELP = payload.help;
+    refreshReconAggregates(payload.summary);
+    return { records: RECON_RECORDS, summary: RECON_SUMMARY, help: RECON_HELP };
   } catch {
     RECON_RECORDS = [];
+    RECON_HELP = null;
     refreshReconAggregates();
-    return [];
+    return { records: [] as ReconRecord[], summary: RECON_SUMMARY, help: null };
   }
 }

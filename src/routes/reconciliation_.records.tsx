@@ -49,7 +49,7 @@ function ReconRecordsPage() {
   const [query, setQuery] = useState("");
 
   useEffect(() => {
-    void hydrateAdminReconFromApi().then(setRecords);
+    void hydrateAdminReconFromApi().then((d) => setRecords(d.records));
   }, []);
 
   const rows = useMemo(() => {

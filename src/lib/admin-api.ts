@@ -190,7 +190,36 @@ export async function fetchAdminDashboard() {
       fixed?: number;
       explore?: number;
       accrued?: number;
+      lock?: number;
+      flex?: number;
+      lockUpfront?: number;
+      lockAtMaturity?: number;
+      valueAtMaturity?: number;
     } | null;
+    tax?: {
+      accruedGross: number;
+      accruedWht: number;
+      accruedNet: number;
+      expectedGross: number;
+      expectedWht: number;
+      expectedNet: number;
+      byCategory: {
+        category: string;
+        principal: number;
+        accruedGross: number;
+        accruedWht: number;
+        accruedNet: number;
+      }[];
+    } | null;
+    pendingFlexBreaks?: {
+      id: string;
+      userId: string;
+      user: string;
+      email: string | null;
+      principal: number;
+      breakRequestedAt: string | null;
+      breakCreditAt: string | null;
+    }[];
   }>("/v1/admin/dashboard");
 }
 
@@ -273,6 +302,8 @@ export async function createAdminPlacement(
     kind?: "FIXED" | "CALL" | "EXPLORE";
     amount: number;
     tenorDays?: number;
+    planType?: "LOCK" | "FLEX";
+    interestPayout?: "AT_MATURITY" | "UPFRONT";
     name?: string;
     productId?: string;
     debitWallet?: boolean;
@@ -428,12 +459,98 @@ export async function adjustAdminUserBalance(
   });
 }
 
-/** SUPER: patch customer profile. */
-export async function updateAdminUserProfile(userId: string, input: Record<string, unknown>) {
+/** Patch customer profile (users.profile; dual-confirm fields when required). */
+export async function updateAdminUserProfile(
+  userId: string,
+  input: Record<string, unknown> & {
+    operatorPin?: string;
+    approverEmail?: string;
+    approverPin?: string;
+  },
+) {
   return adminApi<Record<string, unknown>>(`/v1/admin/users/${userId}`, {
     method: "PATCH",
     body: JSON.stringify(input),
   });
+}
+
+export type AdminPlacementRow = {
+  id: string;
+  userId: string;
+  clientName: string;
+  clientEmail: string;
+  name: string;
+  rawName?: string;
+  kind: string;
+  planType: string | null;
+  interestPayout: string | null;
+  /** Display status: active | matured | broken | break pending */
+  status: string;
+  statusRaw?: string;
+  principal: number;
+  /** Net rate % p.a. (after WHT) */
+  ratePct: number;
+  grossRatePct: number;
+  rateLabel?: string;
+  tenorDays: number | null;
+  startDate: string | null;
+  maturityDate: string | null;
+  placedAt?: string | null;
+  accrued: number;
+  accruedGross: number;
+  accruedWht: number;
+  accruedNet: number;
+  expectedInterest: number | null;
+  expectedGross: number | null;
+  expectedWht: number | null;
+  expectedNet: number | null;
+  valueAtMaturity: number;
+  maturityInstruction?: string | null;
+  breakRequestedAt?: string | null;
+  productId?: string | null;
+};
+
+export type AdminPlacementFilters = {
+  userId?: string | undefined;
+  q?: string | undefined;
+  kind?: "FIXED" | "EXPLORE" | undefined;
+  planType?: "LOCK" | "FLEX" | undefined;
+  interestPayout?: "AT_MATURITY" | "UPFRONT" | undefined;
+  status?: "active" | "matured" | "broken" | "break pending" | undefined;
+  amountMin?: number | undefined;
+  amountMax?: number | undefined;
+  placedFrom?: string | undefined;
+  placedTo?: string | undefined;
+  maturityFrom?: string | undefined;
+  maturityTo?: string | undefined;
+  page?: number | undefined;
+  pageSize?: number | undefined;
+  /** @deprecated use pageSize */
+  limit?: number | undefined;
+};
+
+type RawAdminPlacement = Omit<AdminPlacementRow, "clientName" | "clientEmail"> & {
+  client?: { id: string; name: string; email: string | null } | null;
+};
+
+export async function fetchAdminPlacements(params?: AdminPlacementFilters) {
+  const q = new URLSearchParams();
+  if (params) {
+    for (const [key, value] of Object.entries(params)) {
+      if (key === "limit" || value === undefined || value === null || value === "") continue;
+      q.set(key, String(value));
+    }
+    if (params.limit && !params.pageSize) q.set("pageSize", String(Math.min(200, params.limit)));
+  }
+  const qs = q.toString();
+  const rows = await adminApi<RawAdminPlacement[]>(`/v1/admin/placements${qs ? `?${qs}` : ""}`);
+  return rows.map(
+    (r): AdminPlacementRow => ({
+      ...r,
+      clientName: r.client?.name ?? "—",
+      clientEmail: r.client?.email ?? "",
+    }),
+  );
 }
 
 /** SUPER: upload KYC document (base64). */
@@ -687,6 +804,12 @@ export async function fetchAdminRates() {
       minDays: number;
       maxDays: number | null;
       rateBps: number;
+      ratePct?: number;
+      grossRatePct?: number;
+      rateLabel?: string;
+      family?: "CALL" | "LOCK" | "FLEX" | string | null;
+      payout?: "AT_MATURITY" | "UPFRONT" | null;
+      standardTenorDays?: number | null;
       effectiveFrom: string;
       previousBps?: number | null;
       scheduledBps?: number | null;
@@ -707,10 +830,14 @@ export async function fetchAdminRateRequests() {
       bandId: string;
       band: string;
       code?: string;
+      family?: string | null;
+      payout?: string | null;
       currentBps?: number;
       proposedBps?: number;
       currentRate?: number;
       proposedRate?: number;
+      currentGrossRate?: number;
+      proposedGrossRate?: number;
       effectiveFrom: string;
       reason: string | null;
       status: string;
@@ -892,6 +1019,52 @@ export async function updateAdminFeedCard(
   input: { title?: string; body?: string; active?: boolean; href?: string | null },
 ) {
   return adminApi<{ id: string; active: boolean }>(`/v1/admin/marketing/feed/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify(input),
+  });
+}
+
+export type AdminLearnArticle = {
+  id: string;
+  slug: string;
+  title: string;
+  summary: string;
+  body: string;
+  category: string | null;
+  published: boolean;
+  createdAt: string;
+};
+
+export async function fetchAdminLearnArticles() {
+  return adminApi<AdminLearnArticle[]>("/v1/admin/marketing/learn");
+}
+
+export async function createAdminLearnArticle(input: {
+  slug: string;
+  title: string;
+  summary: string;
+  body: string;
+  category?: string | null;
+  published?: boolean;
+}) {
+  return adminApi<AdminLearnArticle>("/v1/admin/marketing/learn", {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+}
+
+export async function updateAdminLearnArticle(
+  id: string,
+  input: Partial<{
+    slug: string;
+    title: string;
+    summary: string;
+    body: string;
+    category: string | null;
+    published: boolean;
+  }>,
+) {
+  return adminApi<AdminLearnArticle>(`/v1/admin/marketing/learn/${id}`, {
     method: "PATCH",
     body: JSON.stringify(input),
   });
@@ -1233,6 +1406,8 @@ export async function createAdminProduct(input: {
   blurb?: string;
   description?: string;
   ratePct: number;
+  grossRatePct?: number;
+  whtRatePct?: number;
   tenorDays: number;
   minimum: number;
   issuer?: string;
@@ -1263,6 +1438,9 @@ export async function updateAdminProduct(
     availability?: "OPEN" | "CLOSING" | "CLOSED" | "COMING_SOON";
     issuer?: string;
     details?: AdminProductDetails;
+    operatorPin?: string;
+    approverEmail?: string;
+    approverPin?: string;
   },
 ) {
   return adminApi<{
@@ -1396,24 +1574,45 @@ export async function fetchAdminAmlAlerts() {
   >("/v1/admin/aml/alerts");
 }
 
+export type AdminReconPayload = {
+  records: {
+    id: string;
+    providerRef: string;
+    internalRef: string;
+    source: string;
+    customer: string;
+    providerAmount: number;
+    ledgerAmount: number;
+    date: string;
+    status: string;
+    channel: string;
+    note?: string;
+    owner?: string;
+    timeline?: { label: string; at: string; by: string }[];
+  }[];
+  summary: {
+    matched: number;
+    unmatched: number;
+    variance: number;
+    investigating: number;
+    resolved: number;
+    total: number;
+    varianceValue: number;
+    settledPayments: number;
+    settledWithdrawals: number;
+  };
+  sources: { name: string; records: number; value: number; lastSync: string }[];
+  lastSyncAt: string | null;
+  help: {
+    matching: string;
+    syncFrequency: string;
+    unmatched: string;
+    futureSources: string;
+  };
+};
+
 export async function fetchAdminRecon() {
-  return adminApi<
-    {
-      id: string;
-      providerRef: string;
-      internalRef: string;
-      source: string;
-      customer: string;
-      providerAmount: number;
-      ledgerAmount: number;
-      date: string;
-      status: string;
-      channel: string;
-      note?: string;
-      owner?: string;
-      timeline?: { label: string; at: string; by: string }[];
-    }[]
-  >("/v1/admin/recon");
+  return adminApi<AdminReconPayload>("/v1/admin/recon");
 }
 
 export async function fetchAdminCampaigns() {
@@ -1477,7 +1676,8 @@ export async function fetchAdminAdjustments() {
   }>("/v1/admin/adjustments");
 }
 
-export async function fetchAdminNotifications() {
+export async function fetchAdminNotifications(params?: { event?: string }) {
+  const qs = params?.event ? `?event=${encodeURIComponent(params.event)}` : "";
   return adminApi<
     {
       id: string;
@@ -1490,7 +1690,7 @@ export async function fetchAdminNotifications() {
       priority: "high" | "normal";
       to?: string;
     }[]
-  >("/v1/admin/notifications");
+  >(`/v1/admin/notifications${qs}`);
 }
 
 export async function fetchAdminMaturities(params?: { from?: string; to?: string }) {
@@ -1508,6 +1708,11 @@ export async function fetchAdminMaturities(params?: { from?: string; to?: string
       date: string;
       window: "week" | "month";
       maturityDate?: string;
+      planType?: string | null;
+      interestPayout?: string | null;
+      expectedGross?: number | null;
+      expectedWht?: number | null;
+      expectedNet?: number | null;
     }[]
   >(`/v1/admin/dashboard/maturities${query ? `?${query}` : ""}`);
 }
@@ -1767,6 +1972,7 @@ export type AdminReportPack = {
   cadence: string;
   owner: string;
   lastRun: string;
+  lastRunAt?: string | null;
 };
 
 export type AdminReportSchedule = {
@@ -1823,5 +2029,48 @@ export async function putAdminReportSchedules(schedules: AdminReportSchedule[]) 
   return adminApi<AdminReportSchedule[]>("/v1/admin/reports/schedules", {
     method: "PUT",
     body: JSON.stringify(schedules),
+  });
+}
+
+export type AdminLegalDocument = {
+  id: string;
+  docKey: string;
+  title: string;
+  version: string;
+  fileUrl: string | null;
+  published: boolean;
+  publishedAt: string | null;
+  createdAt?: string;
+};
+
+export async function fetchAdminLegalDocuments() {
+  return adminApi<AdminLegalDocument[]>("/v1/admin/legal-documents");
+}
+
+export async function createAdminLegalDocument(input: {
+  docKey:
+    | "terms"
+    | "privacy"
+    | "risk_disclosure"
+    | "product_terms_lock"
+    | "product_terms_flex";
+  title: string;
+  version: string;
+  fileUrl?: string | null;
+  publish?: boolean;
+}) {
+  return adminApi<AdminLegalDocument>("/v1/admin/legal-documents", {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+}
+
+export async function patchAdminLegalDocument(
+  id: string,
+  input: { title?: string; fileUrl?: string | null; publish?: boolean },
+) {
+  return adminApi<AdminLegalDocument>(`/v1/admin/legal-documents/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify(input),
   });
 }

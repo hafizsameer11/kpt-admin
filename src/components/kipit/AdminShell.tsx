@@ -46,7 +46,9 @@ type Group = { heading: string; items: Item[] };
 const GROUPS: Group[] = [
   {
     heading: "Overview",
-    items: [{ label: "Executive dashboard", to: "/", icon: LayoutDashboard }],
+    items: [
+      { label: "Executive dashboard", to: "/", icon: LayoutDashboard, anyOf: ["dashboard.view"] },
+    ],
   },
   {
     heading: "Operations",
@@ -60,6 +62,12 @@ const GROUPS: Group[] = [
         anyOf: ["kyc.review", "kyc.decide", "aml.investigate", "aml.report"],
       },
       { label: "Transactions", to: "/transactions", icon: ArrowLeftRight, anyOf: ["txn.view"] },
+      {
+        label: "Placements",
+        to: "/placements",
+        icon: LineChart,
+        anyOf: ["placement.view"],
+      },
       {
         label: "Withdrawals",
         to: "/withdrawals",
@@ -142,6 +150,12 @@ const GROUPS: Group[] = [
         icon: Mail,
         anyOf: ["role.manage", "admin.manage", "withdrawal.process"],
       },
+      {
+        label: "Legal documents",
+        to: "/settings/legal-documents",
+        icon: Scale,
+        anyOf: ["role.manage", "admin.manage"],
+      },
       { label: "My profile", to: "/profile", icon: UserCircle },
     ],
   },
@@ -150,6 +164,7 @@ const GROUPS: Group[] = [
 const NAV_EXACT_CHILDREN: Record<string, string[]> = {
   "/users": ["/users/dropoffs", "/users/new"],
   "/team": ["/team/roles", "/team/new"],
+  "/placements": [],
 };
 
 function navItemActive(pathname: string, to: string) {

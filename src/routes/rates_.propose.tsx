@@ -7,7 +7,12 @@ import { AdminShell } from "@/components/kipit/AdminShell";
 import { Panel } from "@/components/kipit/AdminBits";
 import { compactNaira } from "@/lib/admin-data";
 import { proposeAdminRate } from "@/lib/admin-api";
-import { hydrateAdminRatesFromApi, type RateBand } from "@/lib/admin-rates-data";
+import {
+  grossFromNetPct,
+  hydrateAdminRatesFromApi,
+  suggestUpfrontNetPct,
+  type RateBand,
+} from "@/lib/admin-rates-data";
 import { adminCanAccess, hydrateAdminPermissionsFromApi } from "@/lib/admin-permissions";
 
 function isoToday() {
@@ -73,7 +78,21 @@ function ProposeRatePage() {
   const selected = useMemo(() => bands.find((b) => b.id === bandId) ?? bands[0], [bandId, bands]);
   const proposed = Number(rate);
   const validRate = rate !== "" && !Number.isNaN(proposed) && proposed >= 1 && proposed <= 40;
+  const proposedGross = validRate ? grossFromNetPct(proposed) : null;
   const delta = validRate && selected ? proposed - selected.currentRate : 0;
+  const maturitySibling = useMemo(() => {
+    if (!selected || selected.family !== "LOCK" || selected.payout !== "UPFRONT") return null;
+    const days = selected.standardTenorDays;
+    if (days == null) return null;
+    return (
+      bands.find(
+        (b) =>
+          b.family === "LOCK" &&
+          b.payout === "AT_MATURITY" &&
+          b.standardTenorDays === days,
+      ) ?? null
+    );
+  }, [bands, selected]);
   const todayIso = new Date().toISOString().slice(0, 10);
   const validDate = effectiveDate !== "" && effectiveDate >= todayIso;
   const canSubmit = validRate && validDate && reason.trim().length >= 10 && selected;
@@ -137,32 +156,77 @@ function ProposeRatePage() {
               >
                 {bands.map((b) => (
                   <option key={b.id} value={b.id}>
-                    {b.band} — {b.product}
+                    {b.product} — {b.band}
                   </option>
                 ))}
               </select>
             </Field>
 
             <div className="grid gap-4 sm:grid-cols-2">
-              <Field label="Current rate">
+              <Field label="Current net rate">
                 <div className="flex h-10 items-center rounded-lg border border-border bg-muted/40 px-3 text-[13.5px] font-extrabold tabular-nums text-muted-foreground">
-                  {(selected?.currentRate ?? 0).toFixed(4)}%
+                  {(selected?.currentRate ?? 0).toFixed(2)}% net
+                  <span className="ml-2 text-[11.5px] font-semibold">
+                    ({(selected?.currentGrossRate ?? 0).toFixed(2)}% gross)
+                  </span>
                 </div>
               </Field>
-              <Field label="Proposed rate" error={touched && !validRate ? "From 1% to 40%" : undefined}>
+              <Field
+                label="Proposed net rate"
+                hint="Gross = net ÷ 0.9"
+                error={touched && !validRate ? "From 1% to 40% net" : undefined}
+              >
                 <div className="flex h-10 items-center gap-1 rounded-lg border border-border bg-card px-3 focus-within:border-brand/50">
                   <input
                     value={rate}
                     onChange={(e) => setRate(e.target.value.replace(/[^0-9.]/g, ""))}
                     onBlur={() => setTouched(true)}
                     inputMode="decimal"
-                    placeholder="0.0000"
+                    placeholder="0.00"
                     className="w-full bg-transparent text-[13.5px] font-extrabold tabular-nums outline-none"
                   />
-                  <span className="text-[13px] font-bold text-muted-foreground">%</span>
+                  <span className="text-[13px] font-bold text-muted-foreground">% net</span>
                 </div>
+                {proposedGross != null ? (
+                  <p className="mt-1.5 text-[12px] text-muted-foreground">
+                    Gross preview: <strong>{proposedGross.toFixed(2)}%</strong>
+                  </p>
+                ) : null}
               </Field>
             </div>
+
+            {maturitySibling && selected?.standardTenorDays ? (
+              <div className="rounded-xl border border-border/70 bg-muted/30 p-3 text-[12.5px]">
+                <p className="font-semibold text-foreground">
+                  Lock upfront suggestion ({selected.standardTenorDays} days)
+                </p>
+                <p className="mt-1 text-muted-foreground">
+                  From at-maturity {maturitySibling.currentRate.toFixed(2)}% net → suggested upfront{" "}
+                  <strong>
+                    {suggestUpfrontNetPct(
+                      maturitySibling.currentRate,
+                      selected.standardTenorDays,
+                    ).toFixed(2)}
+                    % net
+                  </strong>
+                  . You can override.
+                </p>
+                <button
+                  type="button"
+                  className="mt-2 text-[12px] font-bold text-brand hover:underline"
+                  onClick={() =>
+                    setRate(
+                      suggestUpfrontNetPct(
+                        maturitySibling.currentRate,
+                        selected.standardTenorDays!,
+                      ).toFixed(2),
+                    )
+                  }
+                >
+                  Use suggested upfront rate
+                </button>
+              </div>
+            ) : null}
 
             <Field
               label="Effective date"
@@ -224,20 +288,27 @@ function ProposeRatePage() {
           <Panel title="Impact preview" eyebrow="Before / after" icon={CalendarClock}>
             <div className="mt-4 grid grid-cols-2 gap-3">
               <div className="rounded-xl border border-border/70 bg-muted/40 p-3">
-                <p className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">Current</p>
+                <p className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">Current net</p>
                 <p className="mt-1 text-[20px] font-extrabold tabular-nums">
-                  {(selected?.currentRate ?? 0).toFixed(4)}%
+                  {(selected?.currentRate ?? 0).toFixed(2)}%
+                </p>
+                <p className="text-[11.5px] text-muted-foreground">
+                  {(selected?.currentGrossRate ?? 0).toFixed(2)}% gross
                 </p>
               </div>
               <div className="rounded-xl border border-brand/25 bg-brand/5 p-3">
-                <p className="text-[11px] font-bold uppercase tracking-wide text-brand">Proposed</p>
+                <p className="text-[11px] font-bold uppercase tracking-wide text-brand">Proposed net</p>
                 <p className="mt-1 text-[20px] font-extrabold tabular-nums text-brand">
-                  {validRate ? `${proposed.toFixed(4)}%` : "—"}
+                  {validRate ? `${proposed.toFixed(2)}%` : "—"}
+                </p>
+                <p className="text-[11.5px] text-brand/80">
+                  {proposedGross != null ? `${proposedGross.toFixed(2)}% gross` : "—"}
                 </p>
               </div>
             </div>
             <dl className="mt-4 space-y-2 text-[12.5px]">
               <Row label="Change" value={validRate ? `${delta > 0 ? "+" : ""}${(delta * 100).toFixed(0)}bps` : "—"} />
+              <Row label="Product" value={selected?.product ?? "—"} />
               <Row label="Principal in band" value={compactNaira(selected?.principal ?? 0)} />
               <Row label="Active placements" value={(selected?.placements ?? 0).toLocaleString("en-NG")} />
               <Row label="Minimum" value={compactNaira(selected?.minimum ?? 0)} />
@@ -247,8 +318,8 @@ function ProposeRatePage() {
           <div className="flex gap-2.5 rounded-2xl border border-gold/40 bg-gold/10 p-4">
             <Info className="mt-0.5 size-4 shrink-0 text-gold-foreground" />
             <p className="text-[12.5px] leading-relaxed text-gold-foreground">
-              Maker-checker applies: you cannot approve your own proposal. Approved changes affect new
-              placements only — existing contracts keep the rate locked at placement.
+              Enter <strong>net</strong> rates (after 10% WHT). Maker-checker applies: you cannot approve your
+              own proposal. Approved changes affect new placements only.
             </p>
           </div>
         </div>

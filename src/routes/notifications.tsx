@@ -37,6 +37,11 @@ export const Route = createFileRoute("/notifications")({
 
 const KINDS: ("all" | NotificationKind)[] = [
   "all",
+  "customer",
+  "maturity",
+  "welcome",
+  "profile",
+  "statement",
   "compliance",
   "withdrawal",
   "reconciliation",
@@ -52,15 +57,17 @@ function NotificationsPage() {
   const [read, setRead] = useState<string[]>([]);
 
   useEffect(() => {
-    void hydrateAdminNotificationsFromApi().then(setNotifications);
-  }, []);
+    void hydrateAdminNotificationsFromApi(kind === "all" ? undefined : kind).then(setNotifications);
+  }, [kind]);
 
   const isUnread = (id: string, base: boolean) => base && !read.includes(id);
 
   const rows = useMemo(
     () =>
       notifications.filter((n) => {
-        if (kind !== "all" && n.kind !== kind) return false;
+        if (kind === "customer") {
+          if (!["maturity", "welcome", "profile", "statement"].includes(n.kind)) return false;
+        } else if (kind !== "all" && n.kind !== kind) return false;
         if (unreadOnly && !isUnread(n.id, n.unread)) return false;
         return true;
       }),
@@ -79,7 +86,10 @@ function NotificationsPage() {
   const highCount = notifications.filter((n) => n.priority === "high").length;
 
   return (
-    <AdminShell title="Notifications" subtitle="Operational alerts across the console">
+    <AdminShell
+      title="Notifications"
+      subtitle="Operational alerts and customer comms (maturity, welcome, profile, statements)"
+    >
       <div className="grid gap-4 sm:grid-cols-3">
         <Stat label="Unread" value={String(unreadCount)} helper="Needs an operator" tone="brand" icon={Bell} />
         <Stat label="High priority" value={String(highCount)} helper="Money or compliance impact" tone="gold" />
@@ -152,9 +162,11 @@ function NotificationsPage() {
                 return (
                   <li key={n.id} className="flex items-start gap-3 py-3.5 first:pt-0 last:pb-0">
                     <span
-                      className={`mt-0.5 inline-flex shrink-0 items-center rounded-md px-2 py-0.5 text-[10.5px] font-bold uppercase tracking-wider ring-1 ${NOTIFICATION_TONE[n.kind]}`}
+                      className={`mt-0.5 inline-flex shrink-0 items-center rounded-md px-2 py-0.5 text-[10.5px] font-bold uppercase tracking-wider ring-1 ${
+                        NOTIFICATION_TONE[n.kind] ?? NOTIFICATION_TONE.system
+                      }`}
                     >
-                      {NOTIFICATION_LABEL[n.kind]}
+                      {NOTIFICATION_LABEL[n.kind] ?? n.kind}
                     </span>
 
                     <div className="min-w-0 flex-1">

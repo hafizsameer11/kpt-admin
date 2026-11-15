@@ -7,6 +7,7 @@ import { naira } from "@/lib/admin-data";
 import {
   AdminApiError,
   createAdminPlacement,
+  fetchAdminProducts,
   matureAdminPlacement,
   updateAdminPlacement,
 } from "@/lib/admin-api";
@@ -38,6 +39,14 @@ const SECTIONS: { key: AdminInvestment["state"]; label: string }[] = [
   { key: "adjusted", label: "Adjusted" },
 ];
 
+type AdminOffering = {
+  id: string;
+  name: string;
+  ratePct: number;
+  tenorDays: number;
+  minimum: number;
+};
+
 function todayIso() {
   return new Date().toISOString().slice(0, 10);
 }
@@ -56,10 +65,18 @@ function Investments() {
   const [open, setOpen] = useState<AdminInvestment | null>(null);
   const [confirmMature, setConfirmMature] = useState<AdminInvestment | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
-  const [kind, setKind] = useState<"FIXED" | "CALL">("FIXED");
+  const [path, setPath] = useState<"INVEST" | "EXPLORE">("INVEST");
+  const [investType, setInvestType] = useState<"LOCK" | "FLEX" | "CALL">("LOCK");
+  const [interestPayout, setInterestPayout] = useState<"AT_MATURITY" | "UPFRONT">("AT_MATURITY");
+  const [productId, setProductId] = useState("");
+  const [offerings, setOfferings] = useState<AdminOffering[]>([]);
+  const [offeringsLoading, setOfferingsLoading] = useState(false);
+  const kind: "FIXED" | "CALL" | "EXPLORE" =
+    path === "EXPLORE" ? "EXPLORE" : investType === "CALL" ? "CALL" : "FIXED";
+  const selectedOffering = offerings.find((o) => o.id === productId) ?? null;
   const [amount, setAmount] = useState("");
   const [tenorDays, setTenorDays] = useState("90");
-  const [name, setName] = useState("Fixed plan");
+  const [name, setName] = useState("");
   const [debitWallet, setDebitWallet] = useState(true);
   const [startDate, setStartDate] = useState(todayIso());
   const [maturityDate, setMaturityDate] = useState(addDaysIso(todayIso(), 90));
@@ -90,10 +107,13 @@ function Investments() {
   const [dirtyYield, setDirtyYield] = useState<"rate" | "interest" | "payout" | null>(null);
 
   const resetCreateForm = () => {
-    setKind("FIXED");
+    setPath("INVEST");
+    setInvestType("LOCK");
+    setInterestPayout("AT_MATURITY");
+    setProductId("");
     setAmount("");
     setTenorDays("90");
-    setName("Fixed plan");
+    setName("");
     setDebitWallet(true);
     setStartDate(todayIso());
     setMaturityDate(addDaysIso(todayIso(), 90));
@@ -113,7 +133,7 @@ function Investments() {
     if (!createOpen) return;
     setAmount("");
     setTenorDays("90");
-    setName(kind === "FIXED" ? "Fixed plan" : "Call Account");
+    setName("");
     setDebitWallet(true);
     setStartDate(todayIso());
     setMaturityDate(addDaysIso(todayIso(), 90));
@@ -121,7 +141,45 @@ function Investments() {
     setExpectedInterest("");
     setExpectedPayout("");
     setMaturityInstruction("WALLET");
-  }, [kind, createOpen]);
+  }, [path, investType, createOpen]);
+
+  // Flex is always pay-at-maturity; keep tenor valid when switching plan type.
+  useEffect(() => {
+    if (investType === "FLEX") {
+      setInterestPayout("AT_MATURITY");
+      setTenorDays((t) => (Number(t) > 30 ? t : "90"));
+    }
+  }, [investType]);
+
+  useEffect(() => {
+    if (!createOpen || path !== "EXPLORE" || offerings.length > 0) return;
+    let cancelled = false;
+    setOfferingsLoading(true);
+    void fetchAdminProducts()
+      .then((list) => {
+        if (cancelled) return;
+        setOfferings(
+          list
+            .filter((p) => p.availability === "OPEN")
+            .map((p) => ({
+              id: p.id,
+              name: p.name,
+              ratePct: p.ratePct,
+              tenorDays: p.tenorDays,
+              minimum: p.minimum,
+            })),
+        );
+      })
+      .catch(() => {
+        if (!cancelled) toast.error("Could not load active offerings");
+      })
+      .finally(() => {
+        if (!cancelled) setOfferingsLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [createOpen, path, offerings.length]);
 
   useEffect(() => {
     if (!open) {
@@ -153,13 +211,34 @@ function Investments() {
     if (busy) return;
     setBusy(true);
     try {
+      if (kind === "EXPLORE" && !productId) {
+        toast.error("Pick an active offering");
+        return;
+      }
+      if (kind === "FIXED") {
+        const days = Number(tenorDays);
+        if (!days || days < 1 || days > 365) {
+          toast.error("Tenor must be between 1 and 365 days");
+          return;
+        }
+        if (investType === "FLEX" && days <= 30) {
+          toast.error("Kipit Flex requires more than 30 days");
+          return;
+        }
+      }
       const payload: Parameters<typeof createAdminPlacement>[1] = {
         kind,
         amount: parseMoneyInput(amount),
-        tenorDays: kind === "FIXED" ? Number(tenorDays) || undefined : undefined,
-        name: kind === "FIXED" ? name : undefined,
-        debitWallet: kind === "FIXED" ? debitWallet : true,
+        debitWallet: kind === "CALL" ? true : debitWallet,
       };
+      if (kind === "FIXED") {
+        payload.planType = investType === "FLEX" ? "FLEX" : "LOCK";
+        payload.interestPayout = investType === "LOCK" ? interestPayout : "AT_MATURITY";
+        payload.tenorDays = Number(tenorDays);
+        if (name.trim()) payload.name = name.trim();
+      } else if (kind === "EXPLORE") {
+        payload.productId = productId;
+      }
       if (kind === "FIXED" && superAdmin) {
         payload.startDate = startDate;
         if (maturityDate) payload.maturityDate = maturityDate;
@@ -597,26 +676,80 @@ function Investments() {
             <DialogDescription>
               {superAdmin
                 ? "Full control: set start date, rate, interest, and payout as needed."
-                : "Place a fixed plan or fund Call Account."}
+                : "Invest in Lock/Flex or Call Account, or place into an active Explore offering."}
             </DialogDescription>
           </DialogHeader>
           <div className="max-h-[70vh] space-y-3 overflow-y-auto pr-1">
             <div className="flex gap-2">
-              {(["FIXED", "CALL"] as const).map((k) => (
+              {(["INVEST", "EXPLORE"] as const).map((p) => (
                 <button
-                  key={k}
+                  key={p}
                   type="button"
-                  onClick={() => setKind(k)}
+                  onClick={() => setPath(p)}
                   className={`rounded-full px-3 py-1.5 text-[12px] font-bold ${
-                    kind === k
+                    path === p
                       ? "bg-brand text-primary-foreground"
                       : "bg-muted text-muted-foreground"
                   }`}
                 >
-                  {k === "FIXED" ? "Fixed plan" : "Call Account"}
+                  {p === "INVEST" ? "Invest" : "Explore"}
                 </button>
               ))}
             </div>
+            {path === "INVEST" ? (
+              <div className="flex flex-wrap gap-2">
+                {(
+                  [
+                    ["LOCK", "Kipit Lock"],
+                    ["FLEX", "Kipit Flex"],
+                    ["CALL", "Call Account"],
+                  ] as const
+                ).map(([t, label]) => (
+                  <button
+                    key={t}
+                    type="button"
+                    onClick={() => setInvestType(t)}
+                    className={`rounded-lg border px-3 py-1.5 text-[12px] font-bold ${
+                      investType === t
+                        ? "border-brand bg-brand/10 text-brand"
+                        : "border-border text-muted-foreground"
+                    }`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            ) : null}
+            {kind === "EXPLORE" ? (
+              <label className="block">
+                <span className={labelClass}>Active offering</span>
+                <select
+                  value={productId}
+                  onChange={(e) => setProductId(e.target.value)}
+                  className={fieldClass}
+                  disabled={offeringsLoading}
+                >
+                  <option value="">
+                    {offeringsLoading
+                      ? "Loading offerings…"
+                      : offerings.length === 0
+                        ? "No active offerings"
+                        : "Select an offering"}
+                  </option>
+                  {offerings.map((o) => (
+                    <option key={o.id} value={o.id}>
+                      {o.name} · {o.ratePct}% · {o.tenorDays}d · min {naira(o.minimum)}
+                    </option>
+                  ))}
+                </select>
+                {selectedOffering ? (
+                  <p className="mt-1 text-[11.5px] text-muted-foreground">
+                    Rate and tenor come from the offering ({selectedOffering.tenorDays} days,
+                    minimum {naira(selectedOffering.minimum)}).
+                  </p>
+                ) : null}
+              </label>
+            ) : null}
             <label className="block">
               <span className={labelClass}>Amount (₦)</span>
               <input
@@ -625,16 +758,42 @@ function Investments() {
                 className={fieldClass}
               />
             </label>
+            {kind === "EXPLORE" ? (
+              <label className="flex items-center gap-2 text-[13px]">
+                <input
+                  type="checkbox"
+                  checked={debitWallet}
+                  onChange={(e) => setDebitWallet(e.target.checked)}
+                />
+                Debit customer wallet (uncheck to seed from suspense then place)
+              </label>
+            ) : null}
             {kind === "FIXED" ? (
               <>
                 <label className="block">
-                  <span className={labelClass}>Plan name</span>
+                  <span className={labelClass}>Plan name (optional)</span>
                   <input
                     value={name}
                     onChange={(e) => setName(e.target.value)}
+                    placeholder={investType === "FLEX" ? "Kipit Flex" : "Kipit Lock"}
                     className={fieldClass}
                   />
                 </label>
+                {investType === "LOCK" ? (
+                  <label className="block">
+                    <span className={labelClass}>Lock interest payout</span>
+                    <select
+                      value={interestPayout}
+                      onChange={(e) =>
+                        setInterestPayout(e.target.value as "AT_MATURITY" | "UPFRONT")
+                      }
+                      className={fieldClass}
+                    >
+                      <option value="AT_MATURITY">At maturity</option>
+                      <option value="UPFRONT">Upfront</option>
+                    </select>
+                  </label>
+                ) : null}
                 {superAdmin ? (
                   <div className="grid grid-cols-2 gap-3">
                     <label className="block">
@@ -674,6 +833,27 @@ function Investments() {
                     }}
                     className={fieldClass}
                   />
+                  <div className="mt-1.5 flex flex-wrap gap-1.5">
+                    {(investType === "FLEX" ? [60, 90, 180, 365] : [30, 60, 90, 180, 365]).map(
+                      (d) => (
+                        <button
+                          key={d}
+                          type="button"
+                          onClick={() => {
+                            setTenorDays(String(d));
+                            if (superAdmin && startDate) setMaturityDate(addDaysIso(startDate, d));
+                          }}
+                          className={`rounded-md px-2 py-0.5 text-[11px] font-bold ${
+                            Number(tenorDays) === d
+                              ? "bg-brand text-primary-foreground"
+                              : "bg-muted text-muted-foreground"
+                          }`}
+                        >
+                          {d}d
+                        </button>
+                      ),
+                    )}
+                  </div>
                 </label>
                 {superAdmin ? (
                   <>

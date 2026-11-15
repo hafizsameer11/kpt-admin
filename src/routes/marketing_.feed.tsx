@@ -69,6 +69,15 @@ function FeedManagerPage() {
         Back to marketing
       </Link>
 
+      <div className="mb-5 rounded-2xl border border-border/70 bg-muted/30 px-4 py-3 text-[12.5px] leading-relaxed text-muted-foreground">
+        <p className="font-bold text-foreground">For media team — Home feed = client “For you”</p>
+        <p className="mt-1">
+          Published cards appear on the app/web Home “For you” panel (B5). Add a card, set image/tag/title/body and
+          link, then publish. Order here is the order clients see. Unpublish or archive to remove from Home without
+          deleting history.
+        </p>
+      </div>
+
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
         <Stat label="Published cards" value={String(published)} helper="Live on app home" tone="brand" icon={LayoutList} />
         <Stat

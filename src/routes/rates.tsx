@@ -11,6 +11,7 @@ import {
   RATE_STATUS_LABEL,
   RATE_STATUS_TONE,
   type RateBand,
+  type RateFamilyTab,
   type RateStatus,
 } from "@/lib/admin-rates-data";
 import { adminCanAccess, hydrateAdminPermissionsFromApi } from "@/lib/admin-permissions";
@@ -22,13 +23,9 @@ export const Route = createFileRoute("/rates")({
       {
         name: "description",
         content:
-          "Tenor band rate table with effective dating and maker-checker controlled rate changes for Kipit products.",
+          "Call, Kipit Lock and Kipit Flex rates with net/gross display and maker-checker changes.",
       },
       { property: "og:title", content: "Rate management — Kipit Admin Console" },
-      {
-        property: "og:description",
-        content: "Admin workspace for Kipit tenor bands, rate proposals and approvals.",
-      },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
       { name: "robots", content: "noindex" },
@@ -37,19 +34,25 @@ export const Route = createFileRoute("/rates")({
   component: RateTablePage,
 });
 
-const TABS: ("all" | RateStatus)[] = ["all", "active", "pending", "scheduled", "retired"];
+const PRODUCT_TABS: { id: "all" | RateFamilyTab; label: string }[] = [
+  { id: "all", label: "All" },
+  { id: "CALL", label: "Call" },
+  { id: "LOCK", label: "Kipit Lock" },
+  { id: "FLEX", label: "Kipit Flex" },
+];
+
+const STATUS_TABS: ("all" | RateStatus)[] = ["all", "active", "pending", "scheduled", "retired"];
 
 function fmtDate(iso: string) {
-  return new Date(`${iso}T00:00:00`).toLocaleDateString("en-NG", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-  });
+  const [y, m, d] = iso.slice(0, 10).split("-");
+  if (!y || !m || !d) return iso;
+  return `${d}/${m}/${y}`;
 }
 
 function RateTablePage() {
   const [bands, setBands] = useState<RateBand[]>([]);
-  const [tab, setTab] = useState<"all" | RateStatus>("all");
+  const [productTab, setProductTab] = useState<"all" | RateFamilyTab>("all");
+  const [statusTab, setStatusTab] = useState<"all" | RateStatus>("all");
   const [query, setQuery] = useState("");
   const [canPropose, setCanPropose] = useState(false);
   const [canApprove, setCanApprove] = useState(false);
@@ -65,23 +68,17 @@ function RateTablePage() {
   const rows = useMemo(() => {
     const q = query.trim().toLowerCase();
     return bands.filter((b) => {
-      if (tab !== "all" && b.status !== tab) return false;
+      if (productTab !== "all" && b.family !== productTab) return false;
+      if (statusTab !== "all" && b.status !== statusTab) return false;
       if (!q) return true;
-      return [b.band, b.product].some((f) => f.toLowerCase().includes(q));
+      return [b.band, b.product, b.code, b.rateLabel].some((f) => f.toLowerCase().includes(q));
     });
-  }, [bands, tab, query]);
+  }, [bands, productTab, statusTab, query]);
 
   const totals = useMemo(() => {
     const source = bands.length ? bands : getLiveRateBands();
     if (!source.length) {
-      return {
-        bands: 0,
-        active: 0,
-        awaiting: 0,
-        scheduled: 0,
-        principal: 0,
-        weightedRate: 0,
-      };
+      return { bands: 0, active: 0, awaiting: 0, scheduled: 0, principal: 0, weightedRate: 0 };
     }
     return {
       bands: source.length,
@@ -91,12 +88,18 @@ function RateTablePage() {
       principal: source.reduce((s, b) => s + b.principal, 0),
       weightedRate:
         source.reduce((s, b) => s + b.currentRate * b.principal, 0) /
-        Math.max(source.reduce((s, b) => s + b.principal, 0), 1),
+        Math.max(
+          source.reduce((s, b) => s + b.principal, 0),
+          1,
+        ),
     };
   }, [bands]);
 
   return (
-    <AdminShell title="Rate management" subtitle="ADM-070 · tenor bands, effective dating, maker-checker">
+    <AdminShell
+      title="Rate management"
+      subtitle="C10 · Call, Kipit Lock & Kipit Flex — enter net, show gross (÷0.9)"
+    >
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <Stat
           label="Active bands"
@@ -106,8 +109,8 @@ function RateTablePage() {
           icon={Percent}
         />
         <Stat
-          label="Weighted rate"
-          value={`${totals.weightedRate.toFixed(4)}%`}
+          label="Weighted net rate"
+          value={`${totals.weightedRate.toFixed(2)}%`}
           helper="Across placed principal"
           tone="gold"
           icon={TrendingUp}
@@ -115,7 +118,7 @@ function RateTablePage() {
         <Stat
           label="Principal on book"
           value={compactNaira(totals.principal)}
-          helper="Call + fixed placements"
+          helper="Call + Lock + Flex"
           icon={Wallet}
         />
         <Stat
@@ -129,19 +132,36 @@ function RateTablePage() {
       <Panel className="mt-5 overflow-hidden">
         <div className="-m-5">
           <div className="flex flex-wrap items-center gap-3 border-b border-border/70 px-5 py-4">
-            <div className="flex rounded-lg border border-border bg-muted/40 p-0.5">
-              {TABS.map((t) => (
+            <div className="flex flex-wrap rounded-lg border border-border bg-muted/40 p-0.5">
+              {PRODUCT_TABS.map((t) => (
                 <button
-                  key={t}
+                  key={t.id}
                   type="button"
-                  onClick={() => setTab(t)}
+                  onClick={() => setProductTab(t.id)}
                   className={`rounded-md px-3 py-1.5 text-[12.5px] font-bold transition ${
-                    tab === t
+                    productTab === t.id
                       ? "bg-brand text-primary-foreground"
                       : "text-muted-foreground hover:text-foreground"
                   }`}
                 >
-                  {t === "all" ? "All" : RATE_STATUS_LABEL[t]}
+                  {t.label}
+                </button>
+              ))}
+            </div>
+
+            <div className="flex flex-wrap rounded-lg border border-border bg-muted/40 p-0.5">
+              {STATUS_TABS.map((t) => (
+                <button
+                  key={t}
+                  type="button"
+                  onClick={() => setStatusTab(t)}
+                  className={`rounded-md px-3 py-1.5 text-[12.5px] font-bold transition ${
+                    statusTab === t
+                      ? "bg-muted text-foreground"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  {t === "all" ? "Any status" : RATE_STATUS_LABEL[t]}
                 </button>
               ))}
             </div>
@@ -184,13 +204,14 @@ function RateTablePage() {
           </div>
 
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[64rem] border-collapse text-left">
+            <table className="w-full min-w-[68rem] border-collapse text-left">
               <thead>
                 <tr className="border-b border-border/70 bg-muted/40 text-[11px] font-bold uppercase tracking-[0.1em] text-muted-foreground">
-                  <th className="px-5 py-2.5">Tenor band</th>
-                  <th className="px-5 py-2.5 text-right">Current rate</th>
-                  <th className="px-5 py-2.5 text-right">Previous</th>
-                  <th className="px-5 py-2.5">Effective date</th>
+                  <th className="px-5 py-2.5">Product / tenor</th>
+                  <th className="px-5 py-2.5 text-right">Net rate</th>
+                  <th className="px-5 py-2.5 text-right">Gross</th>
+                  <th className="px-5 py-2.5 text-right">Previous net</th>
+                  <th className="px-5 py-2.5">Effective</th>
                   <th className="px-5 py-2.5 text-right">Principal</th>
                   <th className="px-5 py-2.5">Status</th>
                   <th className="px-5 py-2.5 text-right">Actions</th>
@@ -204,14 +225,18 @@ function RateTablePage() {
                       <td className="px-5 py-3">
                         <span className="block text-[13.5px] font-bold">{b.band}</span>
                         <span className="block text-[12px] text-muted-foreground">
-                          {b.product} · min {naira(b.minimum)} · {b.placements.toLocaleString("en-NG")} placements
+                          {b.product} · min {naira(b.minimum)} · {b.placements.toLocaleString("en-NG")}{" "}
+                          placements
                         </span>
                       </td>
                       <td className="px-5 py-3 text-right text-[14px] font-extrabold tabular-nums text-brand">
-                        {b.currentRate.toFixed(4)}%
+                        {b.currentRate.toFixed(2)}%
                       </td>
                       <td className="px-5 py-3 text-right text-[13px] tabular-nums text-muted-foreground">
-                        {b.previousRate.toFixed(4)}%
+                        {b.currentGrossRate.toFixed(2)}%
+                      </td>
+                      <td className="px-5 py-3 text-right text-[13px] tabular-nums text-muted-foreground">
+                        {b.previousRate.toFixed(2)}%
                         {delta !== 0 ? (
                           <span
                             className={`ml-1.5 text-[11.5px] font-bold ${
@@ -259,13 +284,7 @@ function RateTablePage() {
             </table>
             {rows.length === 0 ? (
               <p className="px-5 py-14 text-center text-[13px] text-muted-foreground">
-                {tab === "pending"
-                  ? "No bands awaiting approval. Open the approval queue if you expect a request."
-                  : tab === "scheduled"
-                    ? "No approved rate changes waiting on an effective date."
-                    : tab === "retired"
-                      ? "Retired bands are not used yet — all configured bands are live."
-                      : "No rate bands match this view."}
+                No rate bands match this view. Lock / Flex / Call bands load from Appendix D on the API.
               </p>
             ) : null}
           </div>
@@ -273,8 +292,10 @@ function RateTablePage() {
       </Panel>
 
       <p className="mt-4 text-[12.5px] text-muted-foreground">
-        Rate changes require a second approver and apply to new placements only. Existing contracts keep the
-        rate locked at placement.
+        Enter <strong>net</strong> rates; gross = net ÷ 0.9 (10% WHT). Changes need a second approver and apply
+        to <strong>new</strong> placements only. Custom Lock tenors use nearest standard ≤ days; Flex 31–59
+        days use the 60-day rate. Lock upfront can be suggested from the at-maturity formula on the propose
+        screen.
       </p>
     </AdminShell>
   );

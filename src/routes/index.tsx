@@ -55,6 +55,9 @@ import {
   PRINCIPAL_BY_TENOR,
   RECENT_ACTIVITY,
   TODAY_FLOWS,
+  DASHBOARD_TAX,
+  DASHBOARD_PLAN_SPLIT,
+  PENDING_FLEX_BREAKS,
   compactNaira,
   naira,
 } from "@/lib/admin-data";
@@ -750,6 +753,81 @@ function AdminDashboard() {
               </div>
             ) : null}
 
+            {DASHBOARD_PLAN_SPLIT ? (
+              <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+                <div className="rounded-lg bg-muted/50 px-3 py-2">
+                  <p className="text-[11px] text-muted-foreground">Lock principal</p>
+                  <p className="text-[13px] font-bold tabular-nums">{naira(DASHBOARD_PLAN_SPLIT.lock)}</p>
+                  <p className="text-[11px] text-muted-foreground">
+                    Upfront {naira(DASHBOARD_PLAN_SPLIT.lockUpfront)} · At maturity{" "}
+                    {naira(DASHBOARD_PLAN_SPLIT.lockAtMaturity)}
+                  </p>
+                </div>
+                <div className="rounded-lg bg-muted/50 px-3 py-2">
+                  <p className="text-[11px] text-muted-foreground">Flex principal</p>
+                  <p className="text-[13px] font-bold tabular-nums">{naira(DASHBOARD_PLAN_SPLIT.flex)}</p>
+                </div>
+                <div className="rounded-lg bg-muted/50 px-3 py-2">
+                  <p className="text-[11px] text-muted-foreground">Value at maturity (book)</p>
+                  <p className="text-[13px] font-bold tabular-nums text-brand">
+                    {naira(DASHBOARD_PLAN_SPLIT.valueAtMaturity)}
+                  </p>
+                  <p className="text-[11px] text-muted-foreground">Upfront Lock = principal only</p>
+                </div>
+                <div className="rounded-lg bg-muted/50 px-3 py-2">
+                  <p className="text-[11px] text-muted-foreground">Pending Flex breaks</p>
+                  <p className="text-[13px] font-bold tabular-nums">{PENDING_FLEX_BREAKS.length}</p>
+                  <p className="text-[11px] text-muted-foreground">Credit within 3 business days</p>
+                </div>
+              </div>
+            ) : null}
+
+            {DASHBOARD_TAX ? (
+              <div className="mt-3 rounded-lg border border-border/70 px-3 py-2 text-[12px]">
+                <p className="font-bold">Withholding tax (active book)</p>
+                <p className="mt-1 text-muted-foreground">
+                  Accrued gross {naira(DASHBOARD_TAX.accruedGross)} · WHT {naira(DASHBOARD_TAX.accruedWht)} ·
+                  net {naira(DASHBOARD_TAX.accruedNet)}
+                </p>
+                <p className="text-muted-foreground">
+                  Expected gross {naira(DASHBOARD_TAX.expectedGross)} · WHT {naira(DASHBOARD_TAX.expectedWht)} ·
+                  net {naira(DASHBOARD_TAX.expectedNet)}
+                </p>
+                {DASHBOARD_TAX.byCategory.length ? (
+                  <ul className="mt-2 space-y-1">
+                    {DASHBOARD_TAX.byCategory.map((c) => (
+                      <li key={c.category} className="flex justify-between gap-3">
+                        <span>{c.category}</span>
+                        <span className="tabular-nums text-muted-foreground">
+                          net {naira(c.accruedNet)} (WHT {naira(c.accruedWht)})
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                ) : null}
+              </div>
+            ) : null}
+
+            {PENDING_FLEX_BREAKS.length ? (
+              <div className="mt-3 overflow-x-auto rounded-lg border border-gold/40 bg-gold/10 px-3 py-2">
+                <p className="text-[12px] font-bold text-gold-foreground">Flex breaks awaiting credit</p>
+                <ul className="mt-1 space-y-1 text-[12px]">
+                  {PENDING_FLEX_BREAKS.slice(0, 5).map((b) => (
+                    <li key={b.id} className="flex justify-between gap-3">
+                      <Link
+                        to="/users/$userId/investments"
+                        params={{ userId: b.userId }}
+                        className="font-semibold text-brand hover:underline"
+                      >
+                        {b.user}
+                      </Link>
+                      <span className="tabular-nums">{naira(b.principal)}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
+
             <div className="mt-3 flex items-center justify-between rounded-lg bg-muted/50 px-3 py-2">
               <span className="text-[12px] text-muted-foreground">
                 {rows.length} maturities in view
@@ -758,13 +836,13 @@ function AdminDashboard() {
             </div>
 
             <div className="mt-3 overflow-x-auto">
-              <table className="w-full min-w-[560px] text-left">
+              <table className="w-full min-w-[640px] text-left">
                 <thead>
                   <tr className="border-b border-border text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
                     <th className="pb-2 pr-3">User</th>
                     <th className="pb-2 pr-3">Product</th>
                     <th className="pb-2 pr-3 text-right">Principal</th>
-                    <th className="pb-2 pr-3 text-right">Expected</th>
+                    <th className="pb-2 pr-3 text-right">VAM / net</th>
                     <th className="pb-2 text-right">Maturity</th>
                   </tr>
                 </thead>
@@ -774,12 +852,24 @@ function AdminDashboard() {
                       <td className="py-2.5 pr-3 text-[13px] font-semibold">{r.user}</td>
                       <td className="py-2.5 pr-3 text-[12.5px] text-muted-foreground">
                         {r.product}
+                        {r.planType || r.interestPayout ? (
+                          <span className="mt-0.5 block text-[11px]">
+                            {[r.planType, r.interestPayout === "UPFRONT" ? "upfront" : r.interestPayout === "AT_MATURITY" ? "at maturity" : null]
+                              .filter(Boolean)
+                              .join(" · ")}
+                          </span>
+                        ) : null}
                       </td>
                       <td className="py-2.5 pr-3 text-right text-[13px] font-bold tabular-nums">
                         {naira(r.principal)}
                       </td>
                       <td className="py-2.5 pr-3 text-right text-[13px] font-bold tabular-nums text-brand">
                         {naira(r.expected)}
+                        {r.expectedWht != null ? (
+                          <span className="mt-0.5 block text-[11px] font-semibold text-muted-foreground">
+                            WHT {naira(r.expectedWht)}
+                          </span>
+                        ) : null}
                       </td>
                       <td className="py-2.5 text-right text-[12.5px] font-semibold">{r.date}</td>
                     </tr>

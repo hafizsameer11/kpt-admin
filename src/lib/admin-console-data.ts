@@ -5,6 +5,7 @@
  */
 
 import { ADMIN_USERS, portfolioValue } from "./admin-users-data";
+import { formatReportDateTime } from "./report-dates";
 
 /* ------------------------------------------------------------------ */
 /* Notifications centre                                                */
@@ -16,7 +17,12 @@ export type NotificationKind =
   | "reconciliation"
   | "rates"
   | "system"
-  | "support";
+  | "support"
+  | "maturity"
+  | "welcome"
+  | "profile"
+  | "statement"
+  | "customer";
 
 export type AdminNotification = {
   id: string;
@@ -37,6 +43,11 @@ export const NOTIFICATION_LABEL: Record<NotificationKind, string> = {
   rates: "Rates",
   system: "System",
   support: "Support",
+  maturity: "Maturity",
+  welcome: "Welcome",
+  profile: "Profile updated",
+  statement: "Statement email",
+  customer: "All customer comms",
 };
 
 export const NOTIFICATION_TONE: Record<NotificationKind, string> = {
@@ -46,18 +57,25 @@ export const NOTIFICATION_TONE: Record<NotificationKind, string> = {
   rates: "bg-emerald-500/12 text-emerald-700 ring-emerald-500/25",
   system: "bg-muted text-muted-foreground ring-border",
   support: "bg-sky-500/12 text-sky-700 ring-sky-500/25",
+  maturity: "bg-violet-500/12 text-violet-700 ring-violet-500/25",
+  welcome: "bg-teal-500/12 text-teal-700 ring-teal-500/25",
+  profile: "bg-indigo-500/12 text-indigo-700 ring-indigo-500/25",
+  statement: "bg-cyan-500/12 text-cyan-800 ring-cyan-500/25",
+  customer: "bg-brand/10 text-brand ring-brand/20",
 };
 
 export let ADMIN_NOTIFICATIONS: AdminNotification[] = [];
 
-export async function hydrateAdminNotificationsFromApi() {
+export async function hydrateAdminNotificationsFromApi(event?: string) {
   try {
     const { getAdminAccessToken, fetchAdminNotifications } = await import("./admin-api");
     if (!getAdminAccessToken()) {
       ADMIN_NOTIFICATIONS = [];
       return [];
     }
-    const rows = await fetchAdminNotifications();
+    const rows = await fetchAdminNotifications(
+      event && event !== "all" ? { event } : undefined,
+    );
     const kinds: NotificationKind[] = [
       "compliance",
       "withdrawal",
@@ -65,6 +83,10 @@ export async function hydrateAdminNotificationsFromApi() {
       "rates",
       "system",
       "support",
+      "maturity",
+      "welcome",
+      "profile",
+      "statement",
     ];
     ADMIN_NOTIFICATIONS = rows.map((r) => ({
       id: r.id,
@@ -302,16 +324,7 @@ function asReportCategory(value: string): ReportCategory {
 }
 
 function formatExportWhen(iso: string) {
-  try {
-    return new Date(iso).toLocaleString("en-NG", {
-      day: "2-digit",
-      month: "short",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-  } catch {
-    return iso;
-  }
+  return formatReportDateTime(iso);
 }
 
 export async function hydrateAdminReportsFromApi() {
@@ -332,7 +345,7 @@ export async function hydrateAdminReportsFromApi() {
       description: p.description,
       formats: p.formats,
       cadence: p.cadence,
-      lastRun: p.lastRun,
+      lastRun: p.lastRun === "Never" ? "Never" : formatReportDateTime(p.lastRunAt ?? p.lastRun),
       owner: p.owner,
     }));
     SCHEDULED_REPORTS = data.schedules.map((s) => ({ ...s }));

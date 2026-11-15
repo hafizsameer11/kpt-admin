@@ -21,6 +21,7 @@ import { Route as LockedRouteImport } from './routes/locked'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as MarketingRouteImport } from './routes/marketing'
 import { Route as NotificationsRouteImport } from './routes/notifications'
+import { Route as PlacementsRouteImport } from './routes/placements'
 import { Route as ProductsRouteImport } from './routes/products'
 import { Route as ProfileRouteImport } from './routes/profile'
 import { Route as RatesRouteImport } from './routes/rates'
@@ -54,6 +55,7 @@ import { Route as ProductsPublishedRouteImport } from './routes/products_.publis
 import { Route as RatesApprovalsRouteImport } from './routes/rates_.approvals'
 import { Route as RatesProposeRouteImport } from './routes/rates_.propose'
 import { Route as ReconciliationRecordsRouteImport } from './routes/reconciliation_.records'
+import { Route as SettingsLegalDocumentsRouteImport } from './routes/settings_/legal-documents'
 import { Route as SettingsWithdrawalAlertsRouteImport } from './routes/settings_/withdrawal-alerts'
 import { Route as SupportTicketIdRouteImport } from './routes/support_.$ticketId'
 import { Route as TeamAdminIdRouteImport } from './routes/team_.$adminId'
@@ -141,6 +143,11 @@ const MarketingRoute = MarketingRouteImport.update({
 const NotificationsRoute = NotificationsRouteImport.update({
   id: '/notifications',
   path: '/notifications',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PlacementsRoute = PlacementsRouteImport.update({
+  id: '/placements',
+  path: '/placements',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ProductsRoute = ProductsRouteImport.update({
@@ -309,6 +316,11 @@ const ReconciliationRecordsRoute = ReconciliationRecordsRouteImport.update({
   path: '/reconciliation/records',
   getParentRoute: () => rootRouteImport,
 } as any)
+const SettingsLegalDocumentsRoute = SettingsLegalDocumentsRouteImport.update({
+  id: '/settings_/legal-documents',
+  path: '/settings/legal-documents',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const SettingsWithdrawalAlertsRoute =
   SettingsWithdrawalAlertsRouteImport.update({
     id: '/settings_/withdrawal-alerts',
@@ -466,6 +478,7 @@ export interface FileRoutesByFullPath {
   '/login': typeof LoginRoute
   '/marketing': typeof MarketingRoute
   '/notifications': typeof NotificationsRoute
+  '/placements': typeof PlacementsRoute
   '/products': typeof ProductsRoute
   '/profile': typeof ProfileRoute
   '/rates': typeof RatesRoute
@@ -499,6 +512,7 @@ export interface FileRoutesByFullPath {
   '/rates/approvals': typeof RatesApprovalsRoute
   '/rates/propose': typeof RatesProposeRoute
   '/reconciliation/records': typeof ReconciliationRecordsRoute
+  '/settings/legal-documents': typeof SettingsLegalDocumentsRoute
   '/settings/withdrawal-alerts': typeof SettingsWithdrawalAlertsRoute
   '/support/$ticketId': typeof SupportTicketIdRoute
   '/team/$adminId': typeof TeamAdminIdRoute
@@ -541,6 +555,7 @@ export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/marketing': typeof MarketingRoute
   '/notifications': typeof NotificationsRoute
+  '/placements': typeof PlacementsRoute
   '/products': typeof ProductsRoute
   '/profile': typeof ProfileRoute
   '/rates': typeof RatesRoute
@@ -574,6 +589,7 @@ export interface FileRoutesByTo {
   '/rates/approvals': typeof RatesApprovalsRoute
   '/rates/propose': typeof RatesProposeRoute
   '/reconciliation/records': typeof ReconciliationRecordsRoute
+  '/settings/legal-documents': typeof SettingsLegalDocumentsRoute
   '/settings/withdrawal-alerts': typeof SettingsWithdrawalAlertsRoute
   '/support/$ticketId': typeof SupportTicketIdRoute
   '/team/$adminId': typeof TeamAdminIdRoute
@@ -616,6 +632,7 @@ export interface FileRoutesById {
   '/login': typeof LoginRoute
   '/marketing': typeof MarketingRoute
   '/notifications': typeof NotificationsRoute
+  '/placements': typeof PlacementsRoute
   '/products': typeof ProductsRoute
   '/profile': typeof ProfileRoute
   '/rates': typeof RatesRoute
@@ -649,6 +666,7 @@ export interface FileRoutesById {
   '/rates_/approvals': typeof RatesApprovalsRoute
   '/rates_/propose': typeof RatesProposeRoute
   '/reconciliation_/records': typeof ReconciliationRecordsRoute
+  '/settings_/legal-documents': typeof SettingsLegalDocumentsRoute
   '/settings_/withdrawal-alerts': typeof SettingsWithdrawalAlertsRoute
   '/support_/$ticketId': typeof SupportTicketIdRoute
   '/team_/$adminId': typeof TeamAdminIdRoute
@@ -693,6 +711,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/marketing'
     | '/notifications'
+    | '/placements'
     | '/products'
     | '/profile'
     | '/rates'
@@ -726,6 +745,7 @@ export interface FileRouteTypes {
     | '/rates/approvals'
     | '/rates/propose'
     | '/reconciliation/records'
+    | '/settings/legal-documents'
     | '/settings/withdrawal-alerts'
     | '/support/$ticketId'
     | '/team/$adminId'
@@ -768,6 +788,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/marketing'
     | '/notifications'
+    | '/placements'
     | '/products'
     | '/profile'
     | '/rates'
@@ -801,6 +822,7 @@ export interface FileRouteTypes {
     | '/rates/approvals'
     | '/rates/propose'
     | '/reconciliation/records'
+    | '/settings/legal-documents'
     | '/settings/withdrawal-alerts'
     | '/support/$ticketId'
     | '/team/$adminId'
@@ -842,6 +864,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/marketing'
     | '/notifications'
+    | '/placements'
     | '/products'
     | '/profile'
     | '/rates'
@@ -875,6 +898,7 @@ export interface FileRouteTypes {
     | '/rates_/approvals'
     | '/rates_/propose'
     | '/reconciliation_/records'
+    | '/settings_/legal-documents'
     | '/settings_/withdrawal-alerts'
     | '/support_/$ticketId'
     | '/team_/$adminId'
@@ -918,6 +942,7 @@ export interface RootRouteChildren {
   LoginRoute: typeof LoginRoute
   MarketingRoute: typeof MarketingRoute
   NotificationsRoute: typeof NotificationsRoute
+  PlacementsRoute: typeof PlacementsRoute
   ProductsRoute: typeof ProductsRoute
   ProfileRoute: typeof ProfileRoute
   RatesRoute: typeof RatesRoute
@@ -951,6 +976,7 @@ export interface RootRouteChildren {
   RatesApprovalsRoute: typeof RatesApprovalsRoute
   RatesProposeRoute: typeof RatesProposeRoute
   ReconciliationRecordsRoute: typeof ReconciliationRecordsRoute
+  SettingsLegalDocumentsRoute: typeof SettingsLegalDocumentsRoute
   SettingsWithdrawalAlertsRoute: typeof SettingsWithdrawalAlertsRoute
   SupportTicketIdRoute: typeof SupportTicketIdRoute
   TeamAdminIdRoute: typeof TeamAdminIdRoute
@@ -1055,6 +1081,13 @@ declare module '@tanstack/react-router' {
       path: '/notifications'
       fullPath: '/notifications'
       preLoaderRoute: typeof NotificationsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/placements': {
+      id: '/placements'
+      path: '/placements'
+      fullPath: '/placements'
+      preLoaderRoute: typeof PlacementsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/products': {
@@ -1286,6 +1319,13 @@ declare module '@tanstack/react-router' {
       path: '/reconciliation/records'
       fullPath: '/reconciliation/records'
       preLoaderRoute: typeof ReconciliationRecordsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/settings_/legal-documents': {
+      id: '/settings_/legal-documents'
+      path: '/settings/legal-documents'
+      fullPath: '/settings/legal-documents'
+      preLoaderRoute: typeof SettingsLegalDocumentsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/settings_/withdrawal-alerts': {
@@ -1530,6 +1570,7 @@ const rootRouteChildren: RootRouteChildren = {
   LoginRoute: LoginRoute,
   MarketingRoute: MarketingRoute,
   NotificationsRoute: NotificationsRoute,
+  PlacementsRoute: PlacementsRoute,
   ProductsRoute: ProductsRoute,
   ProfileRoute: ProfileRoute,
   RatesRoute: RatesRoute,
@@ -1563,6 +1604,7 @@ const rootRouteChildren: RootRouteChildren = {
   RatesApprovalsRoute: RatesApprovalsRoute,
   RatesProposeRoute: RatesProposeRoute,
   ReconciliationRecordsRoute: ReconciliationRecordsRoute,
+  SettingsLegalDocumentsRoute: SettingsLegalDocumentsRoute,
   SettingsWithdrawalAlertsRoute: SettingsWithdrawalAlertsRoute,
   SupportTicketIdRoute: SupportTicketIdRoute,
   TeamAdminIdRoute: TeamAdminIdRoute,
@@ -1585,3 +1627,13 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}
