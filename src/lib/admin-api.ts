@@ -1436,6 +1436,8 @@ export async function updateAdminProduct(
     tenorDays?: number;
     minimum?: number;
     availability?: "OPEN" | "CLOSING" | "CLOSED" | "COMING_SOON";
+    /** ISO datetime to archive, or null to restore. */
+    archivedAt?: string | null;
     issuer?: string;
     details?: AdminProductDetails;
     operatorPin?: string;
@@ -1450,6 +1452,7 @@ export async function updateAdminProduct(
     tenorDays: number;
     minimum: number;
     availability: string;
+    archivedAt?: string | null;
     details?: AdminProductDetails | null;
   }>(`/v1/admin/products/${id}`, { method: "PATCH", body: JSON.stringify(input) });
 }

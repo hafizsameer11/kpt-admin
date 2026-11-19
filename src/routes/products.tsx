@@ -284,6 +284,33 @@ function ProductListPage() {
                             Close
                           </button>
                         )}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            void (async () => {
+                              try {
+                                const { updateAdminProduct } = await import("@/lib/admin-api");
+                                const { hydrateAdminProductsFromApi } = await import(
+                                  "@/lib/admin-products-data"
+                                );
+                                await updateAdminProduct(p.id, {
+                                  archivedAt: new Date().toISOString(),
+                                  availability: "CLOSED",
+                                });
+                                const next = await hydrateAdminProductsFromApi();
+                                setProducts(next);
+                                toast.success(`${p.name} deleted from Explore`);
+                              } catch (err) {
+                                toast.error(
+                                  err instanceof Error ? err.message : "Could not delete",
+                                );
+                              }
+                            })();
+                          }}
+                          className="rounded-lg border border-border px-2.5 py-1.5 text-[12px] font-bold text-muted-foreground transition hover:bg-muted/40"
+                        >
+                          Delete
+                        </button>
                       </div>
                     </td>
                   </tr>
