@@ -7,6 +7,7 @@ import { naira } from "@/lib/admin-data";
 import {
   AdminApiError,
   createAdminPlacement,
+  fetchAdminProductCategories,
   fetchAdminProducts,
   matureAdminPlacement,
   updateAdminPlacement,
@@ -73,18 +74,10 @@ function Investments() {
   const [categoryId, setCategoryId] = useState("");
   const [productId, setProductId] = useState("");
   const [offerings, setOfferings] = useState<AdminOffering[]>([]);
+  const [exploreCategories, setExploreCategories] = useState<{ id: string; name: string }[]>([]);
   const [offeringsLoading, setOfferingsLoading] = useState(false);
   const kind: "FIXED" | "CALL" | "EXPLORE" =
     path === "EXPLORE" ? "EXPLORE" : investType === "CALL" ? "CALL" : "FIXED";
-  const exploreCategories = useMemo(() => {
-    const map = new Map<string, string>();
-    for (const o of offerings) {
-      if (!map.has(o.categoryId)) map.set(o.categoryId, o.categoryName);
-    }
-    return [...map.entries()]
-      .map(([id, name]) => ({ id, name }))
-      .sort((a, b) => a.name.localeCompare(b.name));
-  }, [offerings]);
   const offeringsInCategory = useMemo(
     () => (categoryId ? offerings.filter((o) => o.categoryId === categoryId) : []),
     [offerings, categoryId],
@@ -174,12 +167,18 @@ function Investments() {
     if (!createOpen || path !== "EXPLORE") return;
     let cancelled = false;
     setOfferingsLoading(true);
-    void fetchAdminProducts()
-      .then((list) => {
+    void Promise.all([fetchAdminProductCategories(), fetchAdminProducts()])
+      .then(([cats, list]) => {
         if (cancelled) return;
+        // C9 / B17 — Treasury Bills, Commercial Papers, Mutual Funds, Bonds (never Private & Structured Notes).
+        const b17 = cats.filter((c) =>
+          ["treasury-bills", "commercial-papers", "mutual-funds", "bonds"].includes(c.slug),
+        );
+        setExploreCategories(b17.map((c) => ({ id: c.id, name: c.name })));
+        const allowed = new Set(b17.map((c) => c.id));
         setOfferings(
           list
-            .filter((p) => p.availability === "OPEN")
+            .filter((p) => p.availability === "OPEN" && allowed.has(p.category.id))
             .map((p) => ({
               id: p.id,
               name: p.name,
@@ -192,7 +191,7 @@ function Investments() {
         );
       })
       .catch(() => {
-        if (!cancelled) toast.error("Could not load active offerings");
+        if (!cancelled) toast.error("Could not load Explore categories");
       })
       .finally(() => {
         if (!cancelled) setOfferingsLoading(false);
