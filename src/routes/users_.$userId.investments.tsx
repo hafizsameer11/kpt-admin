@@ -45,6 +45,8 @@ type AdminOffering = {
   ratePct: number;
   tenorDays: number;
   minimum: number;
+  categoryId: string;
+  categoryName: string;
 };
 
 function todayIso() {
@@ -68,12 +70,26 @@ function Investments() {
   const [path, setPath] = useState<"INVEST" | "EXPLORE">("INVEST");
   const [investType, setInvestType] = useState<"LOCK" | "FLEX" | "CALL">("LOCK");
   const [interestPayout, setInterestPayout] = useState<"AT_MATURITY" | "UPFRONT">("AT_MATURITY");
+  const [categoryId, setCategoryId] = useState("");
   const [productId, setProductId] = useState("");
   const [offerings, setOfferings] = useState<AdminOffering[]>([]);
   const [offeringsLoading, setOfferingsLoading] = useState(false);
   const kind: "FIXED" | "CALL" | "EXPLORE" =
     path === "EXPLORE" ? "EXPLORE" : investType === "CALL" ? "CALL" : "FIXED";
-  const selectedOffering = offerings.find((o) => o.id === productId) ?? null;
+  const exploreCategories = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const o of offerings) {
+      if (!map.has(o.categoryId)) map.set(o.categoryId, o.categoryName);
+    }
+    return [...map.entries()]
+      .map(([id, name]) => ({ id, name }))
+      .sort((a, b) => a.name.localeCompare(b.name));
+  }, [offerings]);
+  const offeringsInCategory = useMemo(
+    () => (categoryId ? offerings.filter((o) => o.categoryId === categoryId) : []),
+    [offerings, categoryId],
+  );
+  const selectedOffering = offeringsInCategory.find((o) => o.id === productId) ?? null;
   const [amount, setAmount] = useState("");
   const [tenorDays, setTenorDays] = useState("90");
   const [name, setName] = useState("");
@@ -110,6 +126,7 @@ function Investments() {
     setPath("INVEST");
     setInvestType("LOCK");
     setInterestPayout("AT_MATURITY");
+    setCategoryId("");
     setProductId("");
     setAmount("");
     setTenorDays("90");
@@ -131,6 +148,8 @@ function Investments() {
 
   useEffect(() => {
     if (!createOpen) return;
+    setCategoryId("");
+    setProductId("");
     setAmount("");
     setTenorDays("90");
     setName("");
@@ -152,7 +171,7 @@ function Investments() {
   }, [investType]);
 
   useEffect(() => {
-    if (!createOpen || path !== "EXPLORE" || offerings.length > 0) return;
+    if (!createOpen || path !== "EXPLORE") return;
     let cancelled = false;
     setOfferingsLoading(true);
     void fetchAdminProducts()
@@ -167,6 +186,8 @@ function Investments() {
               ratePct: p.ratePct,
               tenorDays: p.tenorDays,
               minimum: p.minimum,
+              categoryId: p.category.id,
+              categoryName: p.category.name,
             })),
         );
       })
@@ -179,7 +200,18 @@ function Investments() {
     return () => {
       cancelled = true;
     };
-  }, [createOpen, path, offerings.length]);
+  }, [createOpen, path]);
+
+  // C9 — clearing category drops the offering so ops always pick category → offering.
+  useEffect(() => {
+    if (!categoryId) {
+      setProductId("");
+      return;
+    }
+    setProductId((prev) =>
+      offerings.some((o) => o.id === prev && o.categoryId === categoryId) ? prev : "",
+    );
+  }, [categoryId, offerings]);
 
   useEffect(() => {
     if (!open) {
@@ -211,9 +243,15 @@ function Investments() {
     if (busy) return;
     setBusy(true);
     try {
-      if (kind === "EXPLORE" && !productId) {
-        toast.error("Pick an active offering");
-        return;
+      if (kind === "EXPLORE") {
+        if (!categoryId) {
+          toast.error("Pick an Explore category");
+          return;
+        }
+        if (!productId) {
+          toast.error("Pick an active offering");
+          return;
+        }
       }
       if (kind === "FIXED") {
         const days = Number(tenorDays);
@@ -721,34 +759,58 @@ function Investments() {
               </div>
             ) : null}
             {kind === "EXPLORE" ? (
-              <label className="block">
-                <span className={labelClass}>Active offering</span>
-                <select
-                  value={productId}
-                  onChange={(e) => setProductId(e.target.value)}
-                  className={fieldClass}
-                  disabled={offeringsLoading}
-                >
-                  <option value="">
-                    {offeringsLoading
-                      ? "Loading offerings…"
-                      : offerings.length === 0
-                        ? "No active offerings"
-                        : "Select an offering"}
-                  </option>
-                  {offerings.map((o) => (
-                    <option key={o.id} value={o.id}>
-                      {o.name} · {o.ratePct}% · {o.tenorDays}d · min {naira(o.minimum)}
+              <>
+                <label className="block">
+                  <span className={labelClass}>Category</span>
+                  <select
+                    value={categoryId}
+                    onChange={(e) => setCategoryId(e.target.value)}
+                    className={fieldClass}
+                    disabled={offeringsLoading}
+                  >
+                    <option value="">
+                      {offeringsLoading
+                        ? "Loading categories…"
+                        : exploreCategories.length === 0
+                          ? "No categories with active offerings"
+                          : "Select a category"}
                     </option>
-                  ))}
-                </select>
-                {selectedOffering ? (
-                  <p className="mt-1 text-[11.5px] text-muted-foreground">
-                    Rate and tenor come from the offering ({selectedOffering.tenorDays} days,
-                    minimum {naira(selectedOffering.minimum)}).
-                  </p>
-                ) : null}
-              </label>
+                    {exploreCategories.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="block">
+                  <span className={labelClass}>Active offering</span>
+                  <select
+                    value={productId}
+                    onChange={(e) => setProductId(e.target.value)}
+                    className={fieldClass}
+                    disabled={offeringsLoading || !categoryId}
+                  >
+                    <option value="">
+                      {!categoryId
+                        ? "Select a category first"
+                        : offeringsInCategory.length === 0
+                          ? "No active offerings in this category"
+                          : "Select an offering"}
+                    </option>
+                    {offeringsInCategory.map((o) => (
+                      <option key={o.id} value={o.id}>
+                        {o.name} · {o.ratePct}% · {o.tenorDays}d · min {naira(o.minimum)}
+                      </option>
+                    ))}
+                  </select>
+                  {selectedOffering ? (
+                    <p className="mt-1 text-[11.5px] text-muted-foreground">
+                      Rate and tenor come from the offering ({selectedOffering.tenorDays} days,
+                      minimum {naira(selectedOffering.minimum)}).
+                    </p>
+                  ) : null}
+                </label>
+              </>
             ) : null}
             <label className="block">
               <span className={labelClass}>Amount (₦)</span>
