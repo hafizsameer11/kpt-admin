@@ -216,7 +216,8 @@ function AdminDashboard() {
     if (Number.isNaN(from.getTime()) || Number.isNaN(to.getTime())) return false;
     return maturity >= from && maturity <= to;
   });
-  const maturingTotal = rows.reduce((sum, r) => sum + r.principal, 0);
+  // C7 — header total must match client VAM (principal + expected interest), not principal alone.
+  const maturingTotal = rows.reduce((sum, r) => sum + (r.expected || r.principal), 0);
 
   return (
     <AdminShell
@@ -820,8 +821,22 @@ function AdminDashboard() {
                         className="font-semibold text-brand hover:underline"
                       >
                         {b.user}
+                        {b.overdue ? (
+                          <span className="ml-1 text-[10px] font-bold text-destructive">OVERDUE</span>
+                        ) : b.businessDaysLeft != null ? (
+                          <span className="ml-1 text-[10px] text-muted-foreground">
+                            {b.businessDaysLeft}d left
+                          </span>
+                        ) : null}
                       </Link>
-                      <span className="tabular-nums">{naira(b.principal)}</span>
+                      <span className="tabular-nums">
+                        {naira(b.payout ?? b.principal)}
+                        {b.creditNet != null ? (
+                          <span className="ml-1 text-[10px] text-muted-foreground">
+                            (net int {naira(b.creditNet)})
+                          </span>
+                        ) : null}
+                      </span>
                     </li>
                   ))}
                 </ul>

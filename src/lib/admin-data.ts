@@ -334,8 +334,12 @@ export let PENDING_FLEX_BREAKS: {
   user: string;
   email: string | null;
   principal: number;
+  creditNet?: number;
+  payout?: number;
   breakRequestedAt: string | null;
   breakCreditAt: string | null;
+  businessDaysLeft?: number;
+  overdue?: boolean;
 }[] = [];
 
 /* ── ADM-013 operational alerts ──────────────────────────────────────── */
