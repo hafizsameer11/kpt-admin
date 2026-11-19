@@ -68,6 +68,8 @@ function RateTablePage() {
   const rows = useMemo(() => {
     const q = query.trim().toLowerCase();
     return bands.filter((b) => {
+      // C10 catalogue only — legacy custom day bands (1/91/121/…) stay out of this table.
+      if (b.family !== "CALL" && b.family !== "LOCK" && b.family !== "FLEX") return false;
       if (productTab !== "all" && b.family !== productTab) return false;
       if (statusTab !== "all" && b.status !== statusTab) return false;
       if (!q) return true;

@@ -66,11 +66,13 @@ function ProposeRatePage() {
 
   useEffect(() => {
     void hydrateAdminRatesFromApi().then((loaded) => {
-      setBands(loaded);
+      // C10 — hide legacy day-range bands; custom tenors inherit standard rates.
+      const managed = loaded.filter((b) => b.family === "CALL" || b.family === "LOCK" || b.family === "FLEX");
+      setBands(managed);
       setBandId((current) => {
-        if (current && loaded.some((b) => b.id === current)) return current;
-        if (band && loaded.some((b) => b.id === band)) return band;
-        return loaded[0]?.id ?? "";
+        if (current && managed.some((b) => b.id === current)) return current;
+        if (band && managed.some((b) => b.id === band)) return band;
+        return managed[0]?.id ?? "";
       });
     });
   }, [band]);
